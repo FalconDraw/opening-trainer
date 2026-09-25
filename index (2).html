@@ -1,0 +1,2183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Opening Trainer</title>
+  <link rel="icon" type="image/svg+xml" href="https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/wN.svg" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <style>
+    :root {
+      --bg:#12141a; --panel:#1b1f2a; --card:#232836; --ink:#e8ecf4; --muted:#9aa3b5;
+      --accent:#e8b86d; --line:#32384a; --light:#edd6a6; --dark:#b58863;
+      --h-good:#2ea043; --h-ok:#d4a72c; --h-bad:#e8783a; --h-blunder:#e5484d;
+    }
+    *{box-sizing:border-box}
+    [hidden]{display:none!important}
+    html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,sans-serif}
+    .app{display:grid;grid-template-columns:320px minmax(0,1fr);height:100vh;height:100dvh;overflow:hidden}
+    .sidebar{background:var(--panel);border-right:1px solid var(--line);padding:18px;overflow:auto}
+    .brand{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+    .logo{font-size:28px;width:44px;height:44px;display:grid;place-items:center;background:#2a3142;border-radius:12px}
+    h1{margin:0;font-size:19px}
+    .sub{margin:2px 0 0;color:var(--muted);font-size:12px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+    .card h2{margin:0 0 6px;font-size:14px}
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+    label:first-child{margin-top:0}
+    select,input[type=text]{width:100%;background:#161922;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px}
+    input[type=range]{width:100%;accent-color:var(--accent)}
+    button{cursor:pointer;border:0;border-radius:9px;padding:9px 12px;font:inherit;font-size:14px}
+    button:disabled{opacity:.5;cursor:default}
+    .primary{background:var(--accent);color:#1a1408;font-weight:650}
+    .ghost{background:#2a3142;color:var(--ink)}
+    .row{display:flex;gap:8px}
+    .row>*{flex:1;min-width:0}
+    .seg{display:grid;grid-template-columns:repeat(3,1fr);background:#161922;border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
+    .seg button{padding:6px 4px;font-size:12px;background:none;color:var(--muted);border-radius:7px}
+    .seg button.on{background:#2e3548;color:var(--ink)}
+    .hint{color:var(--muted);font-size:12px;line-height:1.45;margin:6px 0 0}
+    .lines{list-style:none;margin:8px 0 0;padding:0}
+    .lines li{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:13px}
+    .lines li:hover,.lines li.on{background:#2e3548}
+    .lines .st{width:9px;height:9px;border-radius:50%;background:#3a4154;flex:0 0 auto}
+    .lines .st.clean{background:var(--h-good)} .lines .st.err{background:var(--h-bad)}
+    .lines .tag{margin-left:auto;font-size:11px;color:var(--muted)}
+    .mini{display:flex;gap:8px;margin-top:8px}
+    .mini button{flex:1;font-size:12px;padding:7px}
+
+    .main{container-type:size;overflow:auto;padding:14px 20px;min-width:0;min-height:0}
+    .trainer{display:grid;grid-template-columns:auto minmax(280px,380px);gap:20px;align-items:start;justify-content:center}
+    .board-col{--bw:max(240px, min(100cqh - 100px, 100cqw - 420px, 760px));width:var(--bw);position:sticky;top:0}
+    @container (max-width: 780px){
+      .trainer{grid-template-columns:minmax(0,1fr)}
+      .board-col{--bw:max(240px, min(100cqw, 100cqh - 100px, 640px));justify-self:center;position:static}
+    }
+    .opening{display:flex;align-items:baseline;gap:8px;min-height:30px}
+    .opening .eco{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--accent);background:#2a3142;border-radius:6px;padding:2px 6px}
+    .opening .nm{font-weight:650;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .board-frame{display:grid;grid-template-columns:16px minmax(0,1fr);grid-template-rows:auto 16px;gap:2px;width:100%;margin:6px 0}
+    .ranks{display:grid;grid-template-rows:repeat(8,1fr);color:#c9b896;font-size:11px;font-weight:650}
+    .ranks span{display:flex;align-items:center;justify-content:flex-end;padding-right:3px}
+    .files{grid-column:2;display:grid;grid-template-columns:repeat(8,1fr);color:#c9b896;font-size:11px;font-weight:650}
+    .files span{text-align:center}
+    .board-stage{position:relative;width:100%;aspect-ratio:1}
+    .board{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);position:absolute;inset:0;border-radius:4px;overflow:hidden;box-shadow:0 16px 40px #0008;user-select:none;touch-action:none}
+    .sq{position:relative;display:grid;place-items:center;cursor:pointer;min-width:0;min-height:0}
+    .sq img{width:90%;height:90%;pointer-events:none;user-select:none;position:relative;z-index:1}
+    .sq.light{background:var(--light)} .sq.dark{background:var(--dark)}
+    .sq.last{box-shadow:inset 0 0 0 1000px #bcd35a66}
+    /* heatmap tints */
+    .sq.h-good{box-shadow:inset 0 0 0 1000px color-mix(in srgb, var(--h-good) 62%, transparent)}
+    .sq.h-ok{box-shadow:inset 0 0 0 1000px color-mix(in srgb, var(--h-ok) 62%, transparent)}
+    .sq.h-bad{box-shadow:inset 0 0 0 1000px color-mix(in srgb, var(--h-bad) 66%, transparent)}
+    .sq.h-blunder{box-shadow:inset 0 0 0 1000px color-mix(in srgb, var(--h-blunder) 70%, transparent)}
+    .sq.sel{outline:3px solid #6ea8ff;outline-offset:-3px}
+    .sq.dot::after{content:"";position:absolute;width:26%;height:26%;border-radius:50%;background:#0003}
+    .sq .lbl{position:absolute;right:2px;bottom:2px;z-index:2;font:700 clamp(9px,1.5cqw,13px)/1 ui-monospace,Menlo,monospace;background:#101216d9;color:#fff;border-radius:4px;padding:2px 3px;pointer-events:none}
+    .sq.dragging img{opacity:0}
+    #arrows{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}
+    #dragGhost{position:fixed;pointer-events:none;width:64px;height:64px;transform:translate(-50%,-50%);z-index:50;display:none;filter:drop-shadow(0 8px 12px #0008)}
+    #dragGhost.show{display:block}
+    .under{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .under button{padding:7px 10px;font-size:13px}
+    .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-left:auto}
+    .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+
+    .panel{display:flex;flex-direction:column;gap:12px;min-width:0}
+    .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.45}
+    .box h4{margin:0 0 6px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+    .evalrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+    .evalnum{font:700 20px ui-monospace,Menlo,monospace}
+    .meta{font-size:12px;color:var(--muted)}
+    .verdict .v{font-weight:650}
+    .c-good{color:var(--h-good)} .c-ok{color:var(--h-ok)} .c-bad{color:var(--h-bad)} .c-blunder{color:var(--h-blunder)}
+    .linkbtn{background:none;color:var(--accent);padding:0;font-size:13px;text-decoration:underline}
+    .moves{display:flex;flex-wrap:wrap;gap:3px 6px;font:13px ui-monospace,Menlo,monospace}
+    .moves .n{color:var(--muted)}
+    .moves .m{padding:1px 4px;border-radius:5px;cursor:default}
+    .moves .m.book{background:#2a3142}
+    .dotc{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:3px;vertical-align:1px}
+    .dotc.good{background:var(--h-good)} .dotc.ok{background:var(--h-ok)} .dotc.bad{background:var(--h-bad)} .dotc.blunder{background:var(--h-blunder)}
+    table.mt{width:100%;border-collapse:collapse;font-size:13px}
+    table.mt td{padding:3px 4px;border-top:1px solid #2c3242}
+    table.mt tr{cursor:pointer}
+    table.mt tr:hover{background:#2a3142}
+    table.mt td.s{text-align:right;font-family:ui-monospace,Menlo,monospace}
+    .scroll{max-height:260px;overflow:auto}
+    .note{border-left:3px solid var(--accent);padding-left:10px}
+    .credits{margin-top:16px;font-size:11px;opacity:.8}
+    .credits a{color:var(--muted)}
+    details.settings summary{cursor:pointer;font-weight:650;font-size:14px;list-style:none}
+    details.settings summary::-webkit-details-marker{display:none}
+    details.settings summary::after{content:" ▸";color:var(--muted)}
+    details.settings[open] summary::after{content:" ▾"}
+    label.check{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--ink);margin:12px 0 0}
+    label.check input{width:auto;margin:0}
+    .bookbox{background:#15213a;border:1px solid #2f5ea8;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.4}
+    .bookbox h5{margin:0 0 4px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#8fb6ff}
+    .bookbox .bk{display:flex;gap:8px;align-items:baseline;padding:3px 4px;border-radius:6px;cursor:default}
+    .bookbox .bk:hover,.bookbox .bk.on{background:#1f3257}
+    .bookbox .num{flex:0 0 auto;width:18px;height:18px;border-radius:50%;background:#2f7bf0;color:#fff;font:700 11px/18px system-ui;text-align:center}
+    .bookbox .san{font-family:ui-monospace,Menlo,monospace;font-weight:650;color:#cfe0ff;white-space:nowrap}
+    .bookbox .nm{color:var(--ink)}
+    .announce{border-color:var(--accent);animation:flash 1.2s ease-out}
+    .sq.pop{animation:pop .9s ease-out}
+    .sq.missflash{animation:missflash .45s ease-in-out 2}
+    @keyframes missflash{0%,100%{box-shadow:inset 0 0 0 1000px #2f7bf000}50%{box-shadow:inset 0 0 0 1000px #2f7bf0dd}}
+    img.slider{position:absolute;z-index:4;pointer-events:none;transition:transform .55s ease-in-out}
+    @keyframes pop{0%{box-shadow:inset 0 0 0 1000px #2ea043cc}100%{box-shadow:inset 0 0 0 1000px #2ea04300}}
+    .praise{font-weight:700;color:var(--h-good);font-size:15px}
+    .scorebox{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .scorebox .big{font:800 26px ui-monospace,Menlo,monospace;color:var(--accent)}
+    .scorebox .plus{color:var(--h-good);font-weight:700;margin-left:6px;animation:flash 1s ease-out}
+    .actions2{display:flex;gap:8px;margin-top:10px}
+    .actions2 button{flex:1;padding:8px 10px;font-size:13px}
+    @keyframes flash{from{background:#4a3b1c}to{background:var(--card)}}
+    @media(max-width:900px){
+      .app{grid-template-columns:1fr;height:auto;overflow:visible}
+      .sidebar{border-right:0;border-bottom:1px solid var(--line);order:2}
+      .main{container-type:inline-size;overflow:visible;padding:12px}
+      .trainer{grid-template-columns:minmax(0,1fr)}
+      .board-col{--bw:min(100cqw, 600px);justify-self:center;position:static}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <header class="brand">
+      <div class="logo">♘</div>
+      <div><h1>Opening Trainer</h1><p class="sub">Learn openings by playing them, with Stockfish in your browser</p></div>
+    </header>
+
+    <section class="card">
+      <label>Mode</label>
+      <div class="seg" id="modeSeg">
+        <button data-v="practice" class="on">Practice</button>
+        <button data-v="play">Play engine</button>
+        <button data-v="explore">Explore</button>
+      </div>
+      <p class="hint" id="modeHint"></p>
+
+      <div id="practiceBox">
+        <label for="opening">Opening</label>
+        <select id="opening"></select>
+        <label for="line">Line</label>
+        <select id="line"></select>
+        <label for="sidePick">You play</label>
+        <select id="sidePick">
+          <option value="auto">Opening's side</option>
+          <option value="w">White</option>
+          <option value="b">Black</option>
+        </select>
+        <p class="hint">☆ new · ◐ learning · ★ from memory. Least-studied first.</p>
+      </div>
+
+      <div id="playBox">
+        <p class="hint">You play <strong>Black</strong>. The engine picks a White opening from the library, the page names it as it appears, and your book replies show as numbered blue arrows.</p>
+      </div>
+      <label class="check" id="bookToggleRow"><input type="checkbox" id="bookArrows" checked /> Show book moves as blue arrows</label>
+
+    </section>
+
+    <section class="card" id="openingCard">
+      <h2 id="ocName"></h2>
+      <p class="hint" id="ocIdea" style="margin:0"></p>
+    </section>
+
+    <details class="card settings" id="settings">
+      <summary>⚙ Settings</summary>
+      <label>Move colors</label>
+      <div class="seg" id="mapSeg">
+        <button data-v="always" class="on">Always</button>
+        <button data-v="after">After my move</button>
+        <button data-v="off">Off</button>
+      </div>
+      <label for="depth">Line length: <strong id="depthVal">5 moves</strong></label>
+      <input type="range" id="depth" min="3" max="11" step="1" value="5" />
+      <p class="hint">Lines stop here, or just after they split from similar lines.</p>
+      <label for="views">Full viewings before arrows start to fade</label>
+      <select id="views">
+        <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+      </select>
+      <label for="rating">Stockfish rating: <strong id="ratingVal">1500</strong></label>
+      <input type="range" id="rating" min="800" max="3000" step="50" value="1500" />
+      <p class="hint" id="ratingHint">Below 1320 the strength is approximate.</p>
+      <label>Progress</label>
+      <div class="mini" style="margin-top:0">
+        <button class="ghost" id="exportBtn">Export</button>
+        <button class="ghost" id="importBtn">Import</button>
+        <input type="file" id="importFile" accept=".json,application/json" hidden />
+      </div>
+      <div class="mini">
+        <button class="ghost" id="resetBtn">Start over…</button>
+      </div>
+      <div id="resetBox" hidden style="margin-top:8px">
+        <p class="hint" style="margin:0 0 6px">Reset progress (arrows, ☆◐★, times) for:</p>
+        <div class="mini" style="margin-top:0">
+          <button class="ghost" id="resetLine">This line</button>
+          <button class="ghost" id="resetOpening">This opening</button>
+        </div>
+        <div class="mini">
+          <button class="ghost" id="resetAll" style="color:var(--h-blunder)">Everything + scores</button>
+          <button class="ghost" id="resetCancel">Cancel</button>
+        </div>
+      </div>
+    </details>
+    <p class="hint" id="engineStatus">Loading Stockfish…</p>
+    <p class="hint" id="namesStatus"></p>
+    <p class="hint credits">Free, no account, runs entirely in your browser; your progress stays on your device.<br>
+      Engine: <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener">Stockfish 16</a> (GPLv3) ·
+      Pieces: cburnett set by Colin M.L. Burnett ·
+      Opening names: <a href="https://github.com/lichess-org/chess-openings" target="_blank" rel="noopener">lichess-org/chess-openings</a> (CC0) ·
+      Move logic: <a href="https://github.com/jhlywa/chess.js" target="_blank" rel="noopener">chess.js</a>.<br>
+      Not affiliated with or endorsed by Lichess.</p>
+  </aside>
+
+  <main class="main">
+    <div class="trainer">
+      <div class="board-col">
+        <div class="opening" id="openingName"><span class="nm">Starting position</span></div>
+        <div class="board-frame">
+          <div class="ranks" id="ranks"></div>
+          <div class="board-stage">
+            <div id="board" class="board"></div>
+            <svg id="arrows" viewBox="0 0 8 8">
+              <defs>
+                <marker id="headG" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L4,2 L0,4 z" fill="#15781B"/></marker>
+                <marker id="headB" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L4,2 L0,4 z" fill="#2f7bf0"/></marker>
+                <marker id="headY" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L4,2 L0,4 z" fill="#8b93a7"/></marker>
+              </defs>
+              <g id="arrowLayer"></g>
+            </svg>
+          </div>
+          <div class="files" id="files"></div>
+        </div>
+        <div class="under">
+          <button class="ghost" id="backBtn" title="Take back">◀ Back</button>
+          <button class="ghost" id="fwdBtn" title="Forward (explore)">▶</button>
+          <button class="ghost" id="flipBtn">Flip</button>
+          <button class="ghost" id="restartBtn" title="Restart the line / new game">↻ Restart</button>
+          <div class="legend">
+            <span><i style="background:var(--h-good)"></i>good</span>
+            <span><i style="background:var(--h-ok)"></i>inaccurate</span>
+            <span><i style="background:var(--h-bad)"></i>mistake</span>
+            <span><i style="background:var(--h-blunder)"></i>blunder</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="box scorebox" id="scoreBox" hidden></div>
+        <div class="box announce" id="announceBox" hidden></div>
+        <div class="bookbox" id="bookBox" hidden></div>
+        <div class="box">
+          <div class="evalrow"><h4 style="margin:0">Evaluation</h4><span class="meta" id="depth"></span></div>
+          <div class="evalrow"><span class="evalnum" id="evalNum">0.0</span><span class="meta" id="turnInfo"></span></div>
+          <p class="meta" id="mapHelp" style="margin:6px 0 0">Colored pieces show how good each piece's best move is. Tap a piece to see where it can go and the score of each move (for the side to move).</p>
+        </div>
+        <div class="box verdict" id="verdictBox" hidden></div>
+        <div class="box" id="lineBox" hidden></div>
+        <div class="box"><h4>Moves</h4><div class="moves" id="moveList"></div></div>
+        <div class="box" id="tableBox"><h4>All moves for <span id="tableSide"></span></h4><div class="scroll"><table class="mt" id="moveTable"></table></div></div>
+      </div>
+    </div>
+  </main>
+</div>
+<img id="dragGhost" alt="" />
+<script>
+// side: which side "owns" the opening (you play this side by default)
+// lines: [name, moves, options]; options.side overrides; options.trap = note shown when the line is chosen
+const LIBRARY = [
+  // ---------------- Popular: 1.e4, White systems ----------------
+  { id: "italian", name: "Italian Game", group: "popular", side: "w",
+    idea: "Quick development with the bishop aimed at f7, then a slow build-up with c3 and d3 or a direct d4.",
+    lines: [
+      ["Giuoco Pianissimo", "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O O-O"],
+      ["Giuoco Piano, 6.cxd4", "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ Bd2 Bxd2+ Nbxd2 d5"],
+      ["Two Knights, 4.d3", "e4 e5 Nf3 Nc6 Bc4 Nf6 d3 Be7 O-O O-O Re1 d6"],
+    ] },
+  { id: "ruy", name: "Ruy Lopez", group: "popular", side: "w",
+    idea: "Pressure on the knight that defends e5, aiming for a long-term squeeze in the center.",
+    lines: [
+      ["Closed (Morphy Defense)", "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3"],
+      ["Berlin endgame", "e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 d4 Nd6 Bxc6 dxc6 dxe5 Nf5 Qxd8+ Kxd8"],
+      ["Exchange Variation", "e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O f6 d4"],
+      ["Marshall Attack", "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 O-O c3 d5 exd5 Nxd5 Nxe5 Nxe5 Rxe5 c6"],
+    ] },
+  { id: "scotch", name: "Scotch Game", group: "popular", side: "w",
+    idea: "Opens the center at once with d4, trading Black's e5 pawn for free piece play.",
+    lines: [
+      ["Mieses Variation", "e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nxc6 bxc6 e5 Qe7 Qe2 Nd5 c4"],
+      ["Classical, 4...Bc5", "e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Bc5 Be3 Qf6 c3 Nge7 Bc4"],
+      ["Steinitz, 4...Qh4", "e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Qh4 Nc3 Bb4 Be2 Qxe4 Nb5 Bxc3+ bxc3 Kd8 O-O"],
+    ] },
+  { id: "scotchgambit", name: "Scotch Gambit", group: "popular", side: "w",
+    idea: "Instead of taking back on d4, White develops the bishop to c4 and aims for a quick e5 with an attack.",
+    lines: [
+      ["4...Nf6 5.e5", "e4 e5 Nf3 Nc6 d4 exd4 Bc4 Nf6 e5 d5 Bb5 Ne4 Nxd4 Bd7 Bxc6 bxc6 O-O Be7"],
+      ["4...Bc5 5.c3", "e4 e5 Nf3 Nc6 d4 exd4 Bc4 Bc5 c3 Nf6 e5 d5 Bb5 Ne4 cxd4 Bb4+ Bd2 Nxd2 Nbxd2 O-O"],
+      ["4...Bb4+ 5.c3", "e4 e5 Nf3 Nc6 d4 exd4 Bc4 Bb4+ c3 dxc3 O-O cxb2 Bxb2 Nf6"],
+    ] },
+  { id: "vienna", name: "Vienna Game", group: "popular", side: "w",
+    idea: "Nc3 first keeps the f-pawn free for an early f4 push.",
+    lines: [
+      ["Vienna Gambit", "e4 e5 Nc3 Nf6 f4 d5 fxe5 Nxe4 Nf3 Be7 d3 Nxc3 bxc3"],
+      ["Closed, 3.g3", "e4 e5 Nc3 Nc6 g3 Bc5 Bg2 d6 Nge2"],
+      ["Frankenstein-Dracula", "e4 e5 Nc3 Nf6 Bc4 Nxe4 Qh5 Nd6 Bb3 Nc6 Nb5 g6 Qf3 f5 Qd5 Qe7 Nxc7+ Kd8 Nxa8 b6",
+        { trap: "Wild line: White wins the rook in the corner, Black gets a huge lead in development and traps the knight on a8." }],
+    ] },
+  // ---------------- Popular: 1.e4, Black defenses ----------------
+  { id: "najdorf", name: "Sicilian Najdorf", group: "popular", side: "b",
+    idea: "...a6 keeps White's pieces off b5 and prepares ...e5 or ...e6 with queenside play.",
+    lines: [
+      ["English Attack", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5 Nb3 Be6 f3 Be7 Qd2 O-O O-O-O"],
+      ["6.Bg5 main line", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Bg5 e6 f4 Be7 Qf3 Qc7 O-O-O Nbd7"],
+      ["Opocensky, 6.Be2", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be2 e5 Nb3 Be7 O-O O-O"],
+      ["6.h3", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 h3 e5 Nde2 h5 g3"],
+    ] },
+  { id: "dragon", name: "Sicilian Dragon", group: "popular", side: "b",
+    idea: "The fianchettoed bishop on g7 bites down the long diagonal while Black attacks on the c-file.",
+    lines: [
+      ["Yugoslav Attack, 9.Bc4", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be3 Bg7 f3 O-O Qd2 Nc6 Bc4 Bd7 O-O-O Rc8 Bb3 Ne5"],
+      ["Yugoslav Attack, 9.O-O-O d5", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be3 Bg7 f3 O-O Qd2 Nc6 O-O-O d5"],
+      ["Classical, 6.Be2", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be2 Bg7 O-O O-O Be3 Nc6 Nb3 Be6"],
+    ] },
+  { id: "alapin", name: "Sicilian Alapin (2.c3)", group: "popular", side: "w",
+    idea: "c3 prepares d4 so White can recapture with a pawn and keep a big center.",
+    lines: [
+      ["2...d5", "e4 c5 c3 d5 exd5 Qxd5 d4 Nf6 Nf3 e6 Be3 cxd4 cxd4 Nc6"],
+      ["2...Nf6", "e4 c5 c3 Nf6 e5 Nd5 d4 cxd4 Nf3 Nc6 cxd4 d6 Bc4"],
+      ["2...e6", "e4 c5 c3 e6 d4 d5 exd5 exd5 Nf3 Nc6 Bb5 Bd6"],
+    ] },
+  { id: "french", name: "French Defense", group: "popular", side: "b",
+    idea: "A solid pawn chain; Black accepts a passive light-squared bishop and counterattacks with ...c5 and ...f6.",
+    lines: [
+      ["Winawer", "e4 e6 d4 d5 Nc3 Bb4 e5 c5 a3 Bxc3+ bxc3 Ne7 Qg4"],
+      ["Classical Steinitz", "e4 e6 d4 d5 Nc3 Nf6 e5 Nfd7 f4 c5 Nf3 Nc6 Be3"],
+      ["Advance", "e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Qb6 a3"],
+      ["Tarrasch", "e4 e6 d4 d5 Nd2 c5 exd5 exd5 Ngf3 Nc6 Bb5 Bd6"],
+      ["Exchange", "e4 e6 d4 d5 exd5 exd5 Bd3 Bd6 Nf3 Nf6 O-O O-O"],
+    ] },
+  { id: "caro", name: "Caro-Kann", group: "popular", side: "b",
+    idea: "Like the French but the light-squared bishop gets out first; very solid structure.",
+    lines: [
+      ["Classical, 4...Bf5", "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5 Ng3 Bg6 h4 h6 Nf3 Nd7 h5 Bh7 Bd3 Bxd3 Qxd3"],
+      ["Advance", "e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2 c5 Be3"],
+      ["Panov Attack", "e4 c6 d4 d5 exd5 cxd5 c4 Nf6 Nc3 e6 Nf3 Be7"],
+      ["Two Knights", "e4 c6 Nc3 d5 Nf3 Bg4 h3 Bxf3 Qxf3 e6"],
+      ["Trap: smothered mate", "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Nd7 Qe2 Ngf6 Nd6#",
+        { side: "w", trap: "After 5.Qe2, the natural 5...Ngf6?? walks into 6.Nd6 smothered mate: the e7 pawn is pinned." }],
+    ] },
+  { id: "scandi", name: "Scandinavian", group: "popular", side: "b",
+    idea: "Hits e4 on move one; the queen comes out early but Black gets a simple, easy-to-learn setup.",
+    lines: [
+      ["Main line, 3...Qa5", "e4 d5 exd5 Qxd5 Nc3 Qa5 d4 Nf6 Nf3 c6 Bc4 Bf5"],
+      ["3...Qd6", "e4 d5 exd5 Qxd5 Nc3 Qd6 d4 Nf6 Nf3 a6"],
+    ] },
+  { id: "modernscandi", name: "Modern Scandinavian (2...Nf6)", group: "popular", side: "b",
+    idea: "Black delays taking back on d5 and develops the knight first, recapturing with the knight or gambiting the pawn.",
+    lines: [
+      ["3.d4 Nxd5", "e4 d5 exd5 Nf6 d4 Nxd5 Nf3 g6 c4 Nb6"],
+      ["Portuguese, 3...Bg4", "e4 d5 exd5 Nf6 d4 Bg4 f3 Bf5 Bb5+ Nbd7 c4 e6"],
+      ["3.c4 c6 gambit", "e4 d5 exd5 Nf6 c4 c6 dxc6 Nxc6 Nc3 e5 d3 Bf5"],
+    ] },
+  { id: "pirc", name: "Pirc Defense", group: "popular", side: "b",
+    idea: "Black lets White build a big center, then attacks it with ...c5 or ...e5 from behind.",
+    lines: [
+      ["Austrian Attack", "e4 d6 d4 Nf6 Nc3 g6 f4 Bg7 Nf3 O-O Bd3 Na6"],
+      ["Classical", "e4 d6 d4 Nf6 Nc3 g6 Nf3 Bg7 Be2 O-O O-O c6"],
+      ["150 Attack", "e4 d6 d4 Nf6 Nc3 g6 Be3 Bg7 Qd2 c6 f3 b5"],
+    ] },
+  { id: "petrov", name: "Petrov Defense", group: "popular", side: "b",
+    idea: "Black mirrors White's attack on e5 with a counterattack on e4; famously solid and drawish.",
+    lines: [
+      ["Classical, 5.d4", "e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 d4 d5 Bd3 Nc6 O-O Be7"],
+      ["5.Nc3", "e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 Nc3 Nxc3 dxc3 Be7 Be3 O-O Qd2"],
+      ["Steinitz, 3.d4", "e4 e5 Nf3 Nf6 d4 Nxe4 Bd3 d5 Nxe5 Nd7"],
+      ["Trap: the copycat", "e4 e5 Nf3 Nf6 Nxe5 Nxe4 Qe2 Nf6 Nc6+",
+        { side: "w", trap: "3...Nxe4? copies White, and after 4.Qe2 Nf6?? 5.Nc6+ is a discovered check that wins the queen." }],
+    ] },
+  // ---------------- Popular: 1.d4 ----------------
+  { id: "qgd", name: "Queen's Gambit Declined", group: "popular", side: "b",
+    idea: "Black holds d5 with ...e6 and aims to free the position later with ...c5 or ...e5.",
+    lines: [
+      ["Orthodox", "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 Nbd7 Rc1 c6"],
+      ["Exchange", "d4 d5 c4 e6 Nc3 Nf6 cxd5 exd5 Bg5 Be7 e3 c6 Bd3 Nbd7 Qc2"],
+      ["Ragozin", "d4 d5 c4 e6 Nc3 Nf6 Nf3 Bb4 cxd5 exd5 Bg5 h6 Bh4"],
+      ["Trap: Elephant Trap", "d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 cxd5 exd5 Nxd5 Nxd5 Bxd8 Bb4+ Qd2 Bxd2+ Kxd2 Kxd8",
+        { trap: "7.Nxd5?? looks like it wins a pawn to the pin, but 7...Nxd5! 8.Bxd8 Bb4+ wins a piece for Black." }],
+    ] },
+  { id: "tarrasch", name: "Tarrasch Defense", group: "popular", side: "b",
+    idea: "Black strikes with ...c5 at once and accepts an isolated d-pawn in exchange for free, active pieces.",
+    lines: [
+      ["Main line, 6.g3", "d4 d5 c4 e6 Nc3 c5 cxd5 exd5 Nf3 Nc6 g3 Nf6 Bg2 Be7 O-O O-O"],
+      ["Schara-Hennig Gambit", "d4 d5 c4 e6 Nc3 c5 cxd5 cxd4 Qa4+ Bd7 Qxd4 exd5 Qxd5 Nc6"],
+      ["Symmetrical, 4.e3", "d4 d5 c4 e6 Nc3 c5 e3 Nf6 Nf3 Nc6 a3 cxd4 exd4 Be7"],
+    ] },
+  { id: "qga", name: "Queen's Gambit Accepted", group: "popular", side: "b",
+    idea: "Black gives up the center briefly, then hits back with ...c5 once White spends time regaining the pawn.",
+    lines: [
+      ["Main line, 3.Nf3", "d4 d5 c4 dxc4 Nf3 Nf6 e3 e6 Bxc4 c5 O-O a6"],
+      ["Central, 3.e4", "d4 d5 c4 dxc4 e4 e5 Nf3 exd4 Bxc4 Bb4+"],
+      ["Trap: hanging on to the pawn", "d4 d5 c4 dxc4 e3 b5 a4 c6 axb5 cxb5 Qf3",
+        { side: "w", trap: "Trying to keep the extra pawn with ...b5 and ...c6 runs into 6.Qf3, forking the rook on a8." }],
+    ] },
+  { id: "slav", name: "Slav Defense", group: "popular", side: "b",
+    idea: "...c6 supports d5 without blocking the light-squared bishop.",
+    lines: [
+      ["Main line, 4...dxc4", "d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5 e3 e6 Bxc4 Bb4 O-O"],
+      ["Exchange", "d4 d5 c4 c6 cxd5 cxd5 Nc3 Nf6 Bf4 Nc6 e3 Bf5"],
+      ["Chebanenko, 4...a6", "d4 d5 c4 c6 Nf3 Nf6 Nc3 a6 e3 b5 b3"],
+    ] },
+  { id: "semislav", name: "Semi-Slav", group: "popular", side: "b",
+    idea: "...c6 and ...e6 together: a rock-solid center that can open suddenly with ...dxc4 and ...b5.",
+    lines: [
+      ["Meran, 6.Bd3", "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 e3 Nbd7 Bd3 dxc4 Bxc4 b5 Bd3"],
+      ["Anti-Meran, 6.Qc2", "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 e3 Nbd7 Qc2 Bd6 Bd3 O-O O-O dxc4 Bxc4 b5 Bd3"],
+      ["Moscow, 5.Bg5", "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 Bg5 h6 Bxf6 Qxf6 e3 Nd7 Bd3 dxc4 Bxc4 g6 O-O Bg7"],
+    ] },
+  { id: "kid", name: "King's Indian Defense", group: "popular", side: "b",
+    idea: "Black concedes the center, then strikes with ...e5 and often launches a kingside pawn storm.",
+    lines: [
+      ["Classical, Mar del Plata", "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O Nc6 d5 Ne7 Ne1 Nd7"],
+      ["Sämisch", "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 f3 O-O Be3 e5 d5 Nh5"],
+      ["Four Pawns Attack", "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 f4 O-O Nf3 c5 d5 e6"],
+      ["Fianchetto", "d4 Nf6 c4 g6 Nf3 Bg7 g3 O-O Bg2 d6 O-O Nbd7 Nc3 e5 e4"],
+    ] },
+  { id: "nimzo", name: "Nimzo-Indian Defense", group: "popular", side: "b",
+    idea: "...Bb4 pins the c3 knight to fight for e4, often giving White doubled c-pawns.",
+    lines: [
+      ["Rubinstein, 4.e3", "d4 Nf6 c4 e6 Nc3 Bb4 e3 O-O Bd3 d5 Nf3 c5 O-O"],
+      ["Classical, 4.Qc2", "d4 Nf6 c4 e6 Nc3 Bb4 Qc2 O-O a3 Bxc3+ Qxc3 b6 Bg5 Bb7"],
+      ["Sämisch", "d4 Nf6 c4 e6 Nc3 Bb4 a3 Bxc3+ bxc3 c5 e3 Nc6 Bd3"],
+    ] },
+  { id: "qid", name: "Queen's Indian Defense", group: "popular", side: "b",
+    idea: "...b6 and ...Bb7 (or ...Ba6) control e4 and d5 from a distance.",
+    lines: [
+      ["4.g3 Ba6", "d4 Nf6 c4 e6 Nf3 b6 g3 Ba6 b3 Bb4+ Bd2 Be7 Bg2 c6"],
+      ["Petrosian, 4.a3", "d4 Nf6 c4 e6 Nf3 b6 a3 Bb7 Nc3 d5 cxd5 Nxd5"],
+      ["4.e3", "d4 Nf6 c4 e6 Nf3 b6 e3 Bb7 Bd3 Be7 O-O O-O Nc3 d5"],
+    ] },
+  { id: "grunfeld", name: "Grünfeld Defense", group: "popular", side: "b",
+    idea: "Black invites a big white center, then attacks it with ...c5, the g7 bishop and piece pressure.",
+    lines: [
+      ["Exchange", "d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 e4 Nxc3 bxc3 Bg7 Bc4 c5 Ne2 Nc6 Be3 O-O O-O"],
+      ["Russian System", "d4 Nf6 c4 g6 Nc3 d5 Nf3 Bg7 Qb3 dxc4 Qxc4 O-O e4 a6"],
+      ["4.Bf4", "d4 Nf6 c4 g6 Nc3 d5 Bf4 Bg7 e3 c5 dxc5 Qa5"],
+    ] },
+  { id: "dutch", name: "Dutch Defense", group: "popular", side: "b",
+    idea: "...f5 grabs e4 and prepares a kingside attack, at some cost to king safety.",
+    lines: [
+      ["Leningrad", "d4 f5 g3 Nf6 Bg2 g6 Nf3 Bg7 O-O O-O c4 d6 Nc3 Qe8"],
+      ["Classical", "d4 f5 c4 Nf6 g3 e6 Bg2 Be7 Nf3 O-O O-O d6 Nc3 Qe8"],
+      ["Staunton Gambit", "d4 f5 e4 fxe4 Nc3 Nf6 Bg5"],
+    ] },
+  { id: "stonewall", name: "Stonewall Dutch", group: "popular", side: "b",
+    idea: "Pawns on c6, d5, e6 and f5 build a wall: Black controls e4 and attacks on the kingside, at the cost of a hole on e5.",
+    lines: [
+      ["vs fianchetto, 7.c4", "d4 f5 g3 Nf6 Bg2 e6 Nf3 d5 O-O Bd6 c4 c6"],
+      ["vs b3 and Bb2", "d4 f5 g3 Nf6 Bg2 e6 Nf3 d5 O-O Bd6 c4 c6 b3 Qe7 Bb2 O-O Nbd2"],
+      ["vs e3 setup", "d4 f5 c4 Nf6 Nc3 e6 Nf3 d5 e3 c6 Bd3 Bd6 O-O O-O"],
+    ] },
+  { id: "benoni", name: "Modern Benoni", group: "popular", side: "b",
+    idea: "An unbalanced structure: White gets a central majority, Black gets queenside play and the g7 bishop.",
+    lines: [
+      ["Classical", "d4 Nf6 c4 c5 d5 e6 Nc3 exd5 cxd5 d6 Nf3 g6 e4 Bg7 Be2 O-O O-O Re8"],
+      ["Taimanov (Flick-Knife)", "d4 Nf6 c4 c5 d5 e6 Nc3 exd5 cxd5 d6 e4 g6 f4 Bg7 Bb5+"],
+      ["Fianchetto", "d4 Nf6 c4 c5 d5 e6 Nc3 exd5 cxd5 d6 Nf3 g6 g3 Bg7 Bg2 O-O O-O"],
+    ] },
+  { id: "london", name: "London System", group: "popular", side: "w",
+    idea: "The same solid setup (d4, Bf4, e3, c3) against almost anything: easy to learn, hard to crack.",
+    lines: [
+      ["vs ...d5 and ...c5", "d4 d5 Bf4 Nf6 e3 e6 Nf3 c5 c3 Nc6 Nbd2 Bd6 Bg3 O-O Bd3"],
+      ["vs King's Indian setup", "d4 Nf6 Bf4 g6 e3 Bg7 Nf3 O-O Be2 d6 h3"],
+      ["vs ...Qb6", "d4 d5 Bf4 c5 e3 Nc6 c3 Qb6 Qb3 c4 Qc2"],
+    ] },
+  { id: "catalan", name: "Catalan", group: "popular", side: "w",
+    idea: "Queen's Gambit plus a g2 fianchetto: long-term pressure on the long diagonal and the queenside.",
+    lines: [
+      ["Open, 4...dxc4", "d4 Nf6 c4 e6 g3 d5 Bg2 dxc4 Nf3 Be7 O-O O-O Qc2 a6 Qxc4 b5 Qc2 Bb7"],
+      ["Closed", "d4 Nf6 c4 e6 g3 d5 Bg2 Be7 Nf3 O-O O-O c6 Qc2 Nbd7 Nbd2 b6"],
+      ["3...Bb4+", "d4 Nf6 c4 e6 g3 Bb4+ Bd2 Be7 Bg2 d5 Nf3 O-O O-O"],
+    ] },
+  // ---------------- Popular: flank ----------------
+  // ---------------- English Opening, split by variation ----------------
+  { id: "eng-revsic", name: "English: Reversed Sicilian", group: "english", side: "w",
+    idea: "A Sicilian Dragon with colors reversed and an extra tempo: White presses on the long diagonal and expands with a3 and b4.",
+    lines: [
+      ["5...Nb6, a3 and b4", "c4 e5 Nc3 Nf6 g3 d5 cxd5 Nxd5 Bg2 Nb6 Nf3 Nc6 O-O Be7 d3 O-O a3 Be6 b4"],
+      ["5...Nb6, Rb1 plan", "c4 e5 Nc3 Nf6 g3 d5 cxd5 Nxd5 Bg2 Nb6 Nf3 Nc6 O-O Be7 Rb1 O-O b4"],
+      ["5...Be6, Be3 and Rc1", "c4 e5 Nc3 Nf6 g3 d5 cxd5 Nxd5 Bg2 Be6 Nf3 Nc6 O-O Nb6 d3 Be7 Be3 O-O Rc1 f6"],
+    ] },
+  { id: "eng-4n", name: "English: Four Knights", group: "english", side: "w",
+    idea: "Symmetrical development; White plays for the long diagonal with g3, or for Nd5 with e3 and Qc2.",
+    lines: [
+      ["4.g3 Bb4", "c4 e5 Nc3 Nf6 Nf3 Nc6 g3 Bb4 Bg2 O-O O-O e4 Ng5 Bxc3 bxc3 Re8"],
+      ["4.g3 d5", "c4 e5 Nc3 Nf6 Nf3 Nc6 g3 d5 cxd5 Nxd5 Bg2 Nb6 O-O Be7 d3 O-O"],
+      ["4.e3", "c4 e5 Nc3 Nf6 Nf3 Nc6 e3 Bb4 Qc2 O-O Nd5 Re8 Qf5"],
+    ] },
+  { id: "eng-closed", name: "English: Closed (Botvinnik)", group: "english", side: "w",
+    idea: "A closed center: White either grabs space with e4 and Nge2, or expands on the queenside with Rb1 and b4.",
+    lines: [
+      ["Botvinnik, 5.e4", "c4 e5 Nc3 Nc6 g3 g6 Bg2 Bg7 e4 d6 Nge2 Nge7 O-O O-O d3 f5"],
+      ["5.d3 and b4", "c4 e5 Nc3 Nc6 g3 g6 Bg2 Bg7 d3 d6 Rb1 a5 a3 Nge7 b4 axb4 axb4 O-O b5"],
+      ["5.e3 and d4", "c4 e5 Nc3 Nc6 g3 g6 Bg2 Bg7 e3 d6 Nge2 Nge7 d4 exd4 exd4 O-O O-O"],
+    ] },
+  { id: "eng-sym", name: "English: Symmetrical", group: "english", side: "w",
+    idea: "Mirror-image structures: the fight is over d5 and queenside expansion, and a single tempo matters.",
+    lines: [
+      ["Nf3 with ...e6", "c4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 Nf3 e6 O-O Nge7 d3 O-O Bd2 d5"],
+      ["Botvinnik setup, e3 and d4", "c4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 e3 e6 Nge2 Nge7 O-O O-O d4 cxd4 exd4 d5"],
+      ["Nf3 and d4", "c4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 Nf3 Nf6 O-O O-O d4 cxd4 Nxd4 Nxd4 Qxd4 d6 Qd3"],
+      ["a3 and b4 race", "c4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 a3 a6 Rb1 Rb8 b4 cxb4 axb4 b5 cxb5 axb5"],
+    ] },
+  { id: "eng-hedgehog", name: "English: Hedgehog", group: "english", side: "w",
+    idea: "Black sits compactly on the sixth rank waiting for ...b5 or ...d5; White has space but must watch those breaks.",
+    lines: [
+      ["Rd1 and b3", "c4 c5 Nf3 Nf6 Nc3 e6 g3 b6 Bg2 Bb7 O-O Be7 d4 cxd4 Qxd4 d6 Rd1 a6 b3 Nbd7 e4 Qc7 Be3 O-O"],
+      ["b3 and Bb2", "c4 c5 Nf3 Nf6 Nc3 e6 g3 b6 Bg2 Bb7 O-O Be7 d4 cxd4 Qxd4 d6 b3 Nbd7 Bb2 a6 Rfd1 Qc7 e4 O-O"],
+      ["e4 and Qe3", "c4 c5 Nf3 Nf6 Nc3 e6 g3 b6 Bg2 Bb7 O-O Be7 d4 cxd4 Qxd4 d6 e4 a6 Qe3 Nbd7 b3 Qc7 Bb2 O-O"],
+    ] },
+  { id: "eng-kid", name: "English: vs King's Indian setup", group: "english", side: "w",
+    idea: "White picks a structure: the Botvinnik (e4, Nge2) or a Fianchetto King's Indian with d4; Black aims for ...e5 and ...f5.",
+    lines: [
+      ["Botvinnik, 5.e4", "c4 Nf6 Nc3 g6 g3 Bg7 Bg2 O-O e4 d6 Nge2 e5 O-O c6 d3 a6 a4"],
+      ["Nf3 and b4", "c4 Nf6 Nc3 g6 g3 Bg7 Bg2 O-O Nf3 d6 O-O e5 d3 Nc6 Rb1 a5 a3 h6 b4 axb4 axb4"],
+      ["Nf3 and d4", "c4 Nf6 Nc3 g6 g3 Bg7 Bg2 O-O Nf3 d6 d4 Nbd7 O-O e5 e4 c6 h3"],
+    ] },
+  { id: "eng-e6", name: "English: vs ...Nf6 and ...e6", group: "english", side: "w",
+    idea: "Either the sharp Mikenas-Carls with 3.e4, or a quiet transposition to Queen's Gambit structures.",
+    lines: [
+      ["Mikenas-Carls, 3...d5", "c4 Nf6 Nc3 e6 e4 d5 e5 d4 exf6 dxc3 bxc3 Qxf6 d4"],
+      ["Mikenas-Carls, 3...c5", "c4 Nf6 Nc3 e6 e4 c5 e5 Ng8 Nf3 Nc6 d4 cxd4 Nxd4 Nxe5"],
+      ["Queen's Gambit transposition", "c4 Nf6 Nc3 e6 Nf3 d5 d4 Be7 Bf4 O-O e3 c5"],
+    ] },
+  { id: "reti", name: "Réti Opening", group: "popular", side: "w",
+    idea: "Nf3 and c4 attack Black's center from the side instead of occupying it.",
+    lines: [
+      ["vs ...d5 and ...e6", "Nf3 d5 c4 e6 g3 Nf6 Bg2 Be7 O-O O-O b3 c5"],
+      ["Réti Accepted", "Nf3 d5 c4 dxc4 e3 Nf6 Bxc4 e6 O-O c5"],
+      ["Advance, 2...d4", "Nf3 d5 c4 d4 e3 Nc6 exd4 Nxd4 Nxd4 Qxd4 Nc3"],
+    ] },
+  { id: "kia", name: "King's Indian Attack", group: "popular", side: "w",
+    idea: "The same setup against almost anything: Nf3, g3, Bg2, O-O, d3, Nbd2 and e4, then a kingside attack.",
+    lines: [
+      ["vs ...c6 and ...Bg4", "Nf3 d5 g3 Nf6 Bg2 c6 O-O Bg4 d3 Nbd7 Nbd2 e5 e4"],
+      ["vs ...c5 and ...e6", "Nf3 d5 g3 c5 Bg2 Nc6 O-O e6 d3 Nf6 Nbd2 Be7 e4 O-O Re1"],
+      ["vs King's Indian setup", "Nf3 Nf6 g3 g6 Bg2 Bg7 O-O O-O d3 d6 e4 e5 Nc3"],
+    ] },
+  // ---------------- Trick openings ----------------
+  { id: "friedliver", name: "Fried Liver Attack", group: "trick", side: "w",
+    idea: "White sacrifices a knight on f7 to drag Black's king into the open.",
+    lines: [
+      ["The sacrifice", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5 Nxf7 Kxf7 Qf3+ Ke6 Nc3 Nb4",
+        { trap: "5...Nxd5? is the natural recapture and lets White sacrifice on f7; Black's king ends up on e6." }],
+      ["Lolli Attack", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5 d4 exd4 O-O Be7 Nxf7 Kxf7 Qf3+ Ke6",
+        { trap: "Opening the center first with 6.d4 makes the knight sacrifice even stronger." }],
+      ["Correct defense, 5...Na5", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Na5 Bb5+ c6 dxc6 bxc6 Be2 h6 Nf3 e4 Ne5",
+        { side: "b", trap: "The main line: Black gives a pawn but gains lots of time chasing White's pieces." }],
+    ] },
+  { id: "traxler", name: "Traxler Counterattack", group: "trick", side: "b",
+    idea: "Black ignores the threat to f7 and counter-sacrifices on f2.",
+    lines: [
+      ["5.Nxf7 Bxf2+", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 Bc5 Nxf7 Bxf2+ Kxf2 Nxe4+ Kg1 Qh4 g3 Nxg3 hxg3 Qxg3+ Kf1 Rf8",
+        { trap: "Taking the rook with 5.Nxf7 walks into a king hunt after 5...Bxf2+." }],
+      ["5.Bxf7+", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 Bc5 Bxf7+ Ke7 Bd5 Rf8"],
+    ] },
+  { id: "stafford", name: "Stafford Gambit", group: "trick", side: "b",
+    idea: "Black gives a pawn in the Petrov for fast development and many traps against the white king.",
+    lines: [
+      ["Trap: queen grab", "e4 e5 Nf3 Nf6 Nxe5 Nc6 Nxc6 dxc6 d3 Bc5 Bg5 Nxe4 Bxd8 Bxf2+ Ke2 Bg4#",
+        { trap: "7.Bxd8?? grabs the queen and loses to 7...Bxf2+ 8.Ke2 Bg4#." }],
+      ["Refutation, 5.e5", "e4 e5 Nf3 Nf6 Nxe5 Nc6 Nxc6 dxc6 e5 Ne4 d3 Nc5 d4 Ne6 c3 c5 d5 Nd4",
+        { side: "w", trap: "5.e5! gains space with tempo; White should come out a clean pawn up." }],
+      ["Quiet 5.d3 and Be2", "e4 e5 Nf3 Nf6 Nxe5 Nc6 Nxc6 dxc6 d3 Bc5 Be2 h5 c3 Ng4",
+        { trap: "Taking on g4 opens the h-file for Black's rook; Black's attack is dangerous in practice." }],
+    ] },
+  { id: "englund", name: "Englund Gambit", group: "trick", side: "b",
+    idea: "1...e5 against 1.d4 is objectively dubious but full of traps.",
+    lines: [
+      ["Trap: Qc1#", "d4 e5 dxe5 Nc6 Nf3 Qe7 Bf4 Qb4+ Bd2 Qxb2 Bc3 Bb4 Qd2 Bxc3 Qxc3 Qc1#",
+        { trap: "8.Bc3?? (attacking the queen) loses to 8...Bb4! and mate on c1." }],
+      ["Refutation, 4.Qd5", "d4 e5 dxe5 Nc6 Nf3 Qe7 Qd5 f6 exf6 Nxf6 Qb3",
+        { side: "w", trap: "4.Qd5 defends everything and White stays a pawn up." }],
+    ] },
+  { id: "budapest", name: "Budapest Gambit", group: "trick", side: "b",
+    idea: "Black gambits the e-pawn and usually wins it back, with active pieces.",
+    lines: [
+      ["Trap: axb4?? Nd3#", "d4 Nf6 c4 e5 dxe5 Ng4 Bf4 Nc6 Nf3 Bb4+ Nbd2 Qe7 a3 Ngxe5 axb4 Nd3#",
+        { trap: "8.axb4?? grabs the bishop and allows 8...Nd3, a smothered-style mate." }],
+      ["Main line, 4.Bf4", "d4 Nf6 c4 e5 dxe5 Ng4 Bf4 Nc6 Nf3 Bb4+ Nbd2 Qe7 e3 Ngxe5 Nxe5 Nxe5 Be2"],
+    ] },
+  { id: "albin", name: "Albin Countergambit", group: "trick", side: "b",
+    idea: "...e5 against the Queen's Gambit; the d4 pawn becomes a bone in White's throat.",
+    lines: [
+      ["Trap: Lasker Trap", "d4 d5 c4 e5 dxe5 d4 e3 Bb4+ Bd2 dxe3 Bxb4 exf2+ Ke2 fxg1=N+",
+        { trap: "4.e3? looks natural and runs into the Lasker Trap: the pawn promotes to a knight with check." }],
+      ["Main line, 4.Nf3", "d4 d5 c4 e5 dxe5 d4 Nf3 Nc6 g3 Be6 Nbd2 Qd7 Bg2 O-O-O"],
+    ] },
+  { id: "morra", name: "Smith-Morra Gambit", group: "trick", side: "w",
+    idea: "White gives a pawn against the Sicilian for fast development and open lines.",
+    lines: [
+      ["Main line", "e4 c5 d4 cxd4 c3 dxc3 Nxc3 Nc6 Nf3 d6 Bc4 e6 O-O Nf6 Qe2 Be7 Rd1"],
+      ["Trap: Siberian Trap", "e4 c5 d4 cxd4 c3 dxc3 Nxc3 Nc6 Nf3 e6 Bc4 Qc7 O-O Nf6 Qe2 Ng4 h3 Nd4",
+        { side: "b", trap: "9.h3?? (chasing the knight) loses the queen to 9...Nd4! because of the mate threat on h2." }],
+      ["Declined, 3...Nf6", "e4 c5 d4 cxd4 c3 Nf6 e5 Nd5"],
+    ] },
+  { id: "evans", name: "Evans Gambit", group: "trick", side: "w",
+    idea: "A pawn sacrifice in the Italian to gain time for c3 and d4.",
+    lines: [
+      ["Accepted, 5...Ba5", "e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4 c3 Ba5 d4 exd4 O-O Nge7 cxd4 d5"],
+      ["Accepted, 5...Be7", "e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4 c3 Be7 d4 Na5 Nxe5"],
+      ["Declined", "e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bb6 a4 a6 Nc3 Nf6"],
+    ] },
+  { id: "kingsgambit", name: "King's Gambit", group: "trick", side: "w",
+    idea: "The romantic 2.f4: White offers a pawn to open the f-file and control the center.",
+    lines: [
+      ["Kieseritzky", "e4 e5 f4 exf4 Nf3 g5 h4 g4 Ne5 Nf6 Bc4 d5 exd5 Bd6"],
+      ["Fischer Defense", "e4 e5 f4 exf4 Nf3 d6 d4 g5 h4 g4 Ng1"],
+      ["Falkbeer Countergambit", "e4 e5 f4 d5 exd5 e4 d3 Nf6 dxe4 Nxe4 Nf3 Bc5"],
+      ["Trap: declined with 2...Bc5", "e4 e5 f4 Bc5 Nf3 d6 fxe5 dxe5 Nxe5 Qd4",
+        { side: "b", trap: "4.fxe5?? dxe5 5.Nxe5 Qd4 threatens mate on f2 and the knight at once." }],
+    ] },
+  { id: "bdg", name: "Blackmar-Diemer Gambit", group: "trick", side: "w",
+    idea: "White gives the e-pawn to open the f-file against 1...d5.",
+    lines: [
+      ["Euwe Defense", "d4 d5 e4 dxe4 Nc3 Nf6 f3 exf3 Nxf3 e6 Bg5 Be7 Bd3 c5"],
+      ["Teichmann Defense", "d4 d5 e4 dxe4 Nc3 Nf6 f3 exf3 Nxf3 Bg4 h3 Bxf3 Qxf3 c6 Be3 e6 Bd3"],
+      ["Bogoljubov Defense", "d4 d5 e4 dxe4 Nc3 Nf6 f3 exf3 Nxf3 g6 Bc4 Bg7 O-O O-O Qe1"],
+    ] },
+];
+
+// Additional lines, appended to each opening (appending keeps note indices stable)
+const EXTRA = {
+  italian: [
+    ["Hungarian, 3...Be7", "e4 e5 Nf3 Nc6 Bc4 Be7 d4 d6 d5 Nb8 Bd3 Nf6 c4 O-O"],
+    ["Semi-Italian, 3...d6", "e4 e5 Nf3 Nc6 Bc4 d6 c3 Nf6 d3 Be7 O-O O-O"],
+    ["Blackburne Shilling, 4.Nxd4", "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxd4 exd4 c3 Nf6 d3 dxc3 bxc3"],
+    ["Trap: Blackburne Shilling", "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5 Qg5 Nxf7 Qxg2 Rf1 Qxe4+ Be2 Nf3#",
+      { side: "b", trap: "3...Nd4 invites 4.Nxe5?, grabbing a pawn; after 4...Qg5 White's greed ends in a smothered-style mate." }],
+  ],
+  ruy: [
+    ["Schliemann, 3...f5", "e4 e5 Nf3 Nc6 Bb5 f5 Nc3 fxe4 Nxe4 d5 Nxe5 dxe4 Nxc6 Qg5"],
+    ["Classical, 3...Bc5", "e4 e5 Nf3 Nc6 Bb5 Bc5 c3 Nf6 O-O O-O d4 Bb6"],
+    ["Old Steinitz, 3...d6", "e4 e5 Nf3 Nc6 Bb5 d6 d4 Bd7 Nc3 Nf6 O-O Be7 Re1 exd4 Nxd4"],
+    ["Cozio, 3...Nge7", "e4 e5 Nf3 Nc6 Bb5 Nge7 O-O g6 c3 Bg7 d4 exd4 cxd4 d5 exd5 Nxd5 Re1+"],
+    ["Open, 5...Nxe4", "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Nxe4 d4 b5 Bb3 d5 dxe5 Be6"],
+  ],
+  scotch: [
+    ["4...Bb4+", "e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Bb4+ c3 Bc5 Nxc6 bxc6 Bd3 d6 O-O"],
+    ["4...Nxd4", "e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nxd4 Qxd4 Ne7 Bc4 Ng6 O-O"],
+    ["3...d6", "e4 e5 Nf3 Nc6 d4 d6 Bb5 Bd7 Nc3 exd4 Nxd4 Nf6 O-O Be7"],
+    ["3...Nxd4", "e4 e5 Nf3 Nc6 d4 Nxd4 Nxe5 Ne6 Bc4 c6 O-O Nf6 Nc3"],
+  ],
+  scotchgambit: [
+    ["4...d6 5.O-O", "e4 e5 Nf3 Nc6 d4 exd4 Bc4 d6 O-O Be7 Nxd4 Nf6 Nc3 O-O"],
+    ["4...Be7 5.c3", "e4 e5 Nf3 Nc6 d4 exd4 Bc4 Be7 c3 dxc3 Nxc3 d6 Qb3 Na5"],
+  ],
+  vienna: [
+    ["2...Bc5", "e4 e5 Nc3 Bc5 Nf3 d6 d4 exd4 Nxd4 Nf6 Be2 O-O O-O"],
+    ["Gambit declined, 3...d6", "e4 e5 Nc3 Nf6 f4 d6 Nf3 Nc6 Bb5 Bd7 d3"],
+    ["Gambit accepted, 3...exf4", "e4 e5 Nc3 Nf6 f4 exf4 e5 Ng8 Nf3 d6 d4 dxe5 Qe2"],
+    ["Closed, 3...Nf6", "e4 e5 Nc3 Nc6 g3 Nf6 Bg2 Bc5 Nge2 d6 d3 O-O O-O"],
+  ],
+  najdorf: [
+    ["Fischer-Sozin, 6.Bc4", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Bc4 e6 Bb3 b5 O-O Be7 Qf3 Qb6"],
+    ["6.f3", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 f3 e5 Nb3 Be6 Be3 Be7 Qd2"],
+    ["6.g3", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 g3 e5 Nde2 Be7 Bg2 O-O O-O b5"],
+    ["Moscow, 3.Bb5+", "e4 c5 Nf3 d6 Bb5+ Bd7 Bxd7+ Qxd7 O-O Nc6 c3 Nf6 d4"],
+  ],
+  dragon: [
+    ["Levenfish, 6.f4", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 f4 Nbd7 Nf3 Bg7 e5 Ng4"],
+    ["6.Bc4", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Bc4 Bg7 h3 O-O Bb3 Nc6"],
+    ["Fianchetto, 6.g3", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 g3 Nc6 Nde2 Bg7 Bg2 O-O O-O"],
+    ["3.Bb5+ Nd7", "e4 c5 Nf3 d6 Bb5+ Nd7 d4 Nf6 Nc3 cxd4 Qxd4 e5 Qd3 h6"],
+  ],
+  alapin: [
+    ["2...d6", "e4 c5 c3 d6 d4 Nf6 Bd3 Nc6 Nf3 cxd4 cxd4 Bg4 d5"],
+    ["2...Nc6", "e4 c5 c3 Nc6 d4 d5 exd5 Qxd5 Nf3 cxd4 cxd4 e5 Nc3 Bb4 Bd2"],
+    ["2...g6", "e4 c5 c3 g6 d4 cxd4 cxd4 d5 e5 Nc6 Nc3 Bg7 Bb5"],
+    ["2...e5", "e4 c5 c3 e5 Nf3 Nc6 Bc4 d6 d4 cxd4 cxd4 exd4"],
+  ],
+  french: [
+    ["King's Indian Attack", "e4 e6 d3 d5 Nd2 Nf6 Ngf3 c5 g3 Nc6 Bg2 Be7 O-O O-O"],
+    ["Chigorin, 2.Qe2", "e4 e6 Qe2 c5 Nf3 Nc6 g3 d5 d3 Nf6 Bg2 Be7 O-O O-O"],
+    ["Classical, 4.Bg5", "e4 e6 d4 d5 Nc3 Nf6 Bg5 Be7 e5 Nfd7 Bxe7 Qxe7 f4 O-O Nf3 c5"],
+  ],
+  caro: [
+    ["Fantasy, 3.f3", "e4 c6 d4 d5 f3 e6 Nc3 Bb4 Bd2 dxe4 fxe4 c5"],
+    ["Exchange, 4.Bd3", "e4 c6 d4 d5 exd5 cxd5 Bd3 Nc6 c3 Nf6 Bf4 Bg4 Qb3"],
+    ["Advance, 4.Nc3", "e4 c6 d4 d5 e5 Bf5 Nc3 e6 g4 Bg6 Nge2 c5 h4 h5"],
+    ["2.c4", "e4 c6 c4 d5 exd5 cxd5 cxd5 Nf6 Nc3 Nxd5 Nf3 Nc6 Bb5"],
+  ],
+  scandi: [
+    ["3.d4", "e4 d5 exd5 Qxd5 d4 Nf6 Nf3 Bg4 Be2 e6 O-O Nc6 c4 Qa5"],
+    ["3.Nf3", "e4 d5 exd5 Qxd5 Nf3 Bg4 Be2 Nc6 d4 O-O-O c3 e5"],
+    ["2.Nc3", "e4 d5 Nc3 d4 Nce2 e5 Ng3 Be6 c3 c5"],
+    ["2.e5", "e4 d5 e5 c5 Nf3 Nc6 d4 Bg4 Be2 e6 O-O Nge7 c3"],
+  ],
+  modernscandi: [
+    ["3.Bb5+", "e4 d5 exd5 Nf6 Bb5+ Bd7 Bc4 Bg4 f3 Bf5 Nc3 Nbd7"],
+    ["3.Nf3", "e4 d5 exd5 Nf6 Nf3 Nxd5 d4 Bg4 Be2 e6 O-O Be7 c4 Nb6"],
+  ],
+  pirc: [
+    ["4.Bg5", "e4 d6 d4 Nf6 Nc3 g6 Bg5 Bg7 Qd2 h6 Bh4 c6"],
+    ["4.Bc4", "e4 d6 d4 Nf6 Nc3 g6 Bc4 Bg7 Qe2 Nc6 e5 Nd7 Nf3 O-O"],
+    ["4.f3", "e4 d6 d4 Nf6 Nc3 g6 f3 c6 Be3 b5 Qd2 Nbd7"],
+    ["3.Bd3", "e4 d6 d4 Nf6 Bd3 e5 c3 d5 dxe5 Nxe4 Nf3 Nc6"],
+  ],
+  petrov: [
+    ["Three Knights, 3.Nc3", "e4 e5 Nf3 Nf6 Nc3 Nc6 d4 exd4 Nxd4 Bb4 Nxc6 bxc6 Bd3 d5"],
+    ["3.Bc4", "e4 e5 Nf3 Nf6 Bc4 Nxe4 Nc3 Nxc3 dxc3 f6 O-O Qe7"],
+    ["5.Qe2", "e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 Qe2 Qe7 d3 Nf6 Bg5 Qxe2+ Bxe2 Be7"],
+    ["5.c4", "e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 c4 Nc6 Nc3 Nxc3 dxc3 Be7 Be3 O-O"],
+  ],
+  qgd: [
+    ["3.g3 (Catalan setup)", "d4 d5 c4 e6 g3 Nf6 Bg2 dxc4 Nf3 Be7 O-O O-O Qc2 a6"],
+    ["3.Nf3 Nf6 4.e3", "d4 d5 c4 e6 Nf3 Nf6 e3 c5 cxd5 exd5 Bb5+ Nc6"],
+  ],
+  tarrasch: [
+    ["6.e3", "d4 d5 c4 e6 Nc3 c5 cxd5 exd5 Nf3 Nc6 e3 Nf6 Be2 cxd4 Nxd4 Bd6"],
+    ["5.dxc5", "d4 d5 c4 e6 Nc3 c5 cxd5 exd5 dxc5 d4 Na4 b5 cxb6 axb6"],
+  ],
+  qga: [
+    ["3.e3 e5", "d4 d5 c4 dxc4 e3 e5 Bxc4 exd4 exd4 Nf6 Nf3 Be7 O-O O-O"],
+    ["3.Nc3", "d4 d5 c4 dxc4 Nc3 e5 d5 Nf6 e4 Bc5 Bxc4 O-O"],
+    ["4.Qa4+", "d4 d5 c4 dxc4 Nf3 Nf6 Qa4+ c6 Qxc4 Bf5 Nc3 e6 g3"],
+  ],
+  slav: [
+    ["4.e3 Bf5", "d4 d5 c4 c6 Nf3 Nf6 e3 Bf5 Nc3 e6 Nh4 Bg6 Nxg6 hxg6"],
+    ["3.Nc3", "d4 d5 c4 c6 Nc3 Nf6 e3 Bf5 Qb3 Qb6 c5 Qc7"],
+    ["4.Qc2", "d4 d5 c4 c6 Nf3 Nf6 Qc2 dxc4 Qxc4 Bf5 Nc3 e6 g3 Nbd7"],
+  ],
+  semislav: [
+    ["Exchange, 5.cxd5", "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 cxd5 exd5 Bg5 Be7 e3 Bf5"],
+    ["5.g3", "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 g3 dxc4 Bg2 b5 Ne5 Bb7"],
+    ["5.Qb3", "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 Qb3 dxc4 Qxc4 b5 Qd3 Bb7"],
+  ],
+  kid: [
+    ["Averbakh, 6.Bg5", "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Be2 O-O Bg5 c5 d5 h6 Be3 e6"],
+    ["Makogonov, 5.h3", "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 h3 O-O Bg5 c5 d5 e6"],
+    ["Petrosian, 7.d5", "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 d5 a5 Bg5 h6 Bh4 Na6"],
+  ],
+  nimzo: [
+    ["4.Nf3", "d4 Nf6 c4 e6 Nc3 Bb4 Nf3 c5 g3 cxd4 Nxd4 O-O Bg2 d5 cxd5 Nxd5"],
+    ["Leningrad, 4.Bg5", "d4 Nf6 c4 e6 Nc3 Bb4 Bg5 h6 Bh4 c5 d5 d6 e3 Bxc3+ bxc3 e5"],
+    ["Kmoch, 4.f3", "d4 Nf6 c4 e6 Nc3 Bb4 f3 d5 a3 Bxc3+ bxc3 c5 cxd5 Nxd5"],
+  ],
+  qid: [
+    ["4.Nc3", "d4 Nf6 c4 e6 Nf3 b6 Nc3 Bb4 Bg5 Bb7 e3 h6 Bh4 g5 Bg3 Ne4"],
+    ["4.Bf4", "d4 Nf6 c4 e6 Nf3 b6 Bf4 Bb7 e3 Be7 h3 O-O Nc3 d5"],
+  ],
+  grunfeld: [
+    ["4.Nf3 Bg7 5.Bg5", "d4 Nf6 c4 g6 Nc3 d5 Nf3 Bg7 Bg5 Ne4 cxd5 Nxg5 Nxg5 e6"],
+    ["Exchange, 5.Bd2", "d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 Bd2 Bg7 e4 Nb6 Be3 O-O"],
+    ["Anti-Grünfeld, 3.f3", "d4 Nf6 c4 g6 f3 d5 cxd5 Nxd5 e4 Nb6 Nc3 Bg7 Be3 O-O"],
+    ["3.Nf3 Bg7 4.g3", "d4 Nf6 c4 g6 Nf3 Bg7 g3 d5 cxd5 Nxd5 Bg2 O-O O-O Nb6"],
+  ],
+  dutch: [
+    ["2.Bg5", "d4 f5 Bg5 g6 Nd2 Bg7 c3 Nf6 e3 d6"],
+    ["2.Nc3", "d4 f5 Nc3 Nf6 Bg5 d5 Bxf6 exf6 e3 c6"],
+    ["2.c4 Nf6 3.Nc3", "d4 f5 c4 Nf6 Nc3 g6 Nf3 Bg7 e3 O-O Be2 d6 O-O"],
+  ],
+  stonewall: [
+    ["vs Bf4", "d4 f5 g3 Nf6 Bg2 e6 Nf3 d5 O-O Bd6 c4 c6 Bf4 Bxf4 gxf4 O-O"],
+    ["vs Qc2", "d4 f5 g3 Nf6 Bg2 e6 Nf3 d5 O-O Bd6 c4 c6 Qc2 O-O Nc3 Ne4"],
+  ],
+  benoni: [
+    ["Modern main line, 8.h3", "d4 Nf6 c4 c5 d5 e6 Nc3 exd5 cxd5 d6 e4 g6 Nf3 Bg7 h3 O-O Bd3 b5"],
+    ["3.Nf3", "d4 Nf6 c4 c5 Nf3 cxd4 Nxd4 e5 Nb5 d5 cxd5 Bc5"],
+  ],
+  london: [
+    ["vs ...c5 and ...Qb6", "d4 Nf6 Bf4 c5 e3 Qb6 Nc3 Qxb2 Nb5 Na6 a3"],
+    ["vs Queen's Indian setup", "d4 Nf6 Bf4 e6 e3 b6 Nf3 Bb7 h3 Be7 Bd3 O-O O-O c5 c3"],
+    ["vs Dutch", "d4 f5 Bf4 Nf6 e3 e6 Nf3 b6 Bd3 Bb7 Nbd2 Be7 h3"],
+    ["vs ...Bf5", "d4 d5 Bf4 Nf6 e3 Bf5 c4 e6 Nc3 Bb4 Qb3 Nc6"],
+  ],
+  catalan: [
+    ["4...Bb4+", "d4 Nf6 c4 e6 g3 d5 Bg2 Bb4+ Bd2 Be7 Nf3 O-O O-O c6 Qc2"],
+    ["4...c5", "d4 Nf6 c4 e6 g3 d5 Bg2 c5 Nf3 cxd4 O-O Nc6 Nxd4 Be7 cxd5 Nxd5"],
+    ["3...c5", "d4 Nf6 c4 e6 g3 c5 d5 exd5 cxd5 d6 Nc3 g6 Bg2 Bg7 Nf3 O-O"],
+  ],
+  "eng-revsic": [
+    ["5...Nxc3", "c4 e5 Nc3 Nf6 g3 d5 cxd5 Nxd5 Bg2 Nxc3 bxc3 Nc6 Rb1 Bd6 Nf3 O-O"],
+    ["Keres, 3...c6", "c4 e5 Nc3 Nf6 g3 c6 Nf3 e4 Nd4 d5 cxd5 cxd5 d3 Bc5 Nb3 Bb4"],
+    ["3...Bb4", "c4 e5 Nc3 Nf6 g3 Bb4 Bg2 O-O e4 Bxc3 bxc3 c6 Ne2 d5"],
+  ],
+  "eng-4n": [
+    ["4.g3 Nd4", "c4 e5 Nc3 Nf6 Nf3 Nc6 g3 Nd4 Bg2 Nxf3+ Bxf3 Bb4 Qb3 Bc5"],
+    ["4.g3 Bc5", "c4 e5 Nc3 Nf6 Nf3 Nc6 g3 Bc5 Bg2 d6 O-O O-O d3 h6 a3 a6 b4 Ba7"],
+  ],
+  "eng-closed": [
+    ["3...f5", "c4 e5 Nc3 Nc6 g3 f5 Bg2 Nf6 d3 Bc5 e3 a5 Nge2 d6"],
+  ],
+  "eng-sym": [
+    ["5...e5", "c4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 Nf3 e5 O-O Nge7 d3 O-O a3 d6 Rb1"],
+    ["5...d6", "c4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 Nf3 d6 O-O Nh6 d4 cxd4 Nxd4 O-O"],
+  ],
+  "eng-hedgehog": [
+    ["6...a6", "c4 c5 Nf3 Nf6 Nc3 e6 g3 b6 Bg2 Bb7 O-O a6 d4 cxd4 Qxd4 d6 Rd1"],
+    ["Rubinstein, 3...d5", "c4 c5 Nf3 Nf6 Nc3 d5 cxd5 Nxd5 g3 Nc6 Bg2 Nc7 O-O e5"],
+  ],
+  "eng-kid": [
+    ["Botvinnik vs ...c5", "c4 Nf6 Nc3 g6 g3 Bg7 Bg2 O-O e4 c5 Nge2 Nc6 O-O d6 d3"],
+    ["3...d5", "c4 Nf6 Nc3 g6 g3 d5 cxd5 Nxd5 Bg2 Nb6 Nf3 Nc6 O-O Bg7 d3 O-O"],
+  ],
+  "eng-e6": [
+    ["Mikenas, 3...Bb4", "c4 Nf6 Nc3 e6 e4 Bb4 e5 Ng8 Nf3 Nc6 d4 d6"],
+  ],
+  reti: [
+    ["vs King's Indian setup", "Nf3 Nf6 c4 g6 g3 Bg7 Bg2 O-O O-O d6 Nc3 e5 d3"],
+    ["vs ...c5", "Nf3 c5 c4 Nc6 Nc3 Nf6 g3 g6 Bg2 Bg7 O-O O-O"],
+  ],
+  kia: [
+    ["vs ...Bg4 and ...e5", "Nf3 d5 g3 Bg4 Bg2 Nd7 O-O Ngf6 d3 e5 Nbd2 Bd6 e4"],
+  ],
+  englund: [
+    ["Charlick, 2...d6", "d4 e5 dxe5 d6 exd6 Bxd6 Nf3 Nf6 Bg5 O-O e3"],
+  ],
+  friedliver: [
+    ["Ulvestad, 5...b5", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 b5 Bf1 h6 Nxf7 Kxf7 dxc6"],
+    ["Fritz, 5...Nd4", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nd4 c3 b5 Bf1 Nxd5 cxd4 Qxg5"],
+  ],
+  traxler: [
+    ["5.d4", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 Bc5 d4 d5 exd5 Nxd5 Nxf7 Bxd4"],
+  ],
+  budapest: [
+    ["Fajarowicz, 3...Ne4", "d4 Nf6 c4 e5 dxe5 Ne4 Nf3 Nc6 a3 d6 exd6 Bxd6"],
+  ],
+  albin: [
+    ["5.a3", "d4 d5 c4 e5 dxe5 d4 Nf3 Nc6 a3 Be6 Nbd2 Qd7 g3 Nge7"],
+  ],
+};
+
+for (const [id, ls] of Object.entries(EXTRA)) { const o = LIBRARY.find((x) => x.id === id); if (o) o.lines.push(...ls); }
+// Hand-written notes shown where a line splits from its siblings: NOTES[openingId][lineIndex]
+const NOTES = {
+  ruy: [
+    "3...a6 asks the bishop a question; White keeps it with Ba4 and both sides castle into a slow, maneuvering middlegame where White builds with c3, h3 and d4 while Black holds e5.",
+    "3...Nf6 counterattacks e4 at once. After the trades the queens are off, Black's king has lost the right to castle and the c-pawns are doubled, but the bishop pair and a very solid structure compensate. White plays with the kingside pawn majority.",
+    "White gives up the bishop pair to damage Black's pawns. The plan is an endgame where White's healthy kingside majority can make a passed pawn, while Black relies on the two bishops.",
+    "Black sacrifices a pawn with ...d5 for a long-lasting initiative against White's king. White is a pawn up but has to defend accurately for many moves.",
+  ],
+  "eng-revsic": [
+    "A reversed Dragon with an extra tempo: White expands on the queenside with a3 and b4 while the g2 bishop presses on the long diagonal.",
+    "Rb1 prepares the same b4 push without spending a move on a3, and the rook is already on the b-file when it opens.",
+    "Black develops the bishop before deciding where the knight goes. Here White switches plans: Be3 and Rc1 put pressure down the c-file against c7 and eye the c5 square.",
+  ],
+  "eng-4n": [
+    "Black pins the c3 knight and later gives up the bishop to double White's c-pawns after ...e4. White gets the bishop pair and play on the b-file.",
+    "Black transposes into a Reversed Sicilian with the knights already on f3 and c6. White aims for queenside play backed by the g2 bishop.",
+    "A different plan: no fianchetto. White heads for Qc2 and Nd5, fighting for d5 with pieces rather than with the g2 bishop.",
+  ],
+  "eng-closed": [
+    "The Botvinnik setup: pawns on c4 and e4 clamp d5, and White plays for f4 or queenside expansion. The d4 square is a hole Black's knight may use.",
+    "White keeps the center closed and runs the queenside pawns (Rb1, a3, b4, b5) to open lines on Black's side of the board.",
+    "White breaks with d4 early, trading off Black's e5 pawn for central space and a more open game.",
+  ],
+  "eng-sym": [
+    "Black mirrors White but uses ...e6 and ...Nge7 to prepare ...d5, fighting for the center White controls from a distance.",
+    "White builds with e3 and Nge2 and then breaks with d4; after the exchanges the position opens and piece activity decides.",
+    "White opens the center with d4 at once; after the trades the queen centralizes and White has a small lead in development.",
+    "Both sides race to expand on the queenside (a3/b4 against ...a6/...b5); the half-open files that result are the whole battle.",
+  ],
+  "eng-hedgehog": [
+    "White keeps the space advantage and watches Black's two breaks, ...b5 and ...d5, with the rook on d1.",
+    "The b2 bishop contests the long diagonal against Black's b7 bishop; White keeps the pieces flexible and waits for Black to commit.",
+    "White grabs even more space with e4, but the e4 pawn becomes a target and the ...d5 break gains force.",
+  ],
+  "eng-kid": [
+    "White uses the Botvinnik pawn setup (c4 and e4) against the King's Indian: d5 is controlled, and Black usually answers with ...e5 and ...f5.",
+    "White keeps pawns on c4 and d3 and attacks on the queenside with Rb1 and b4, while Black plays on the kingside.",
+    "White transposes into a Fianchetto King's Indian with d4, and the game becomes a classic fight for the center.",
+  ],
+  "eng-e6": [
+    "White kicks the f6 knight with e5 and gets a sharp position with an unbalanced pawn structure.",
+    "Black hits back with ...c5, and White's advanced e5 pawn becomes the target Black tries to win.",
+    "White steers into Queen's Gambit structures with d4 and Bf4, avoiding the sharp lines.",
+  ],
+};
+
+</script>
+<script>
+"use strict";
+/* ============================================================
+   Config
+   ============================================================ */
+const PIECE_BASE = "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/";
+const ENGINE_JS = "https://cdn.jsdelivr.net/npm/stockfish@16.0.0/src/stockfish-nnue-16-single.js";
+const ENGINE_WASM = "https://cdn.jsdelivr.net/npm/stockfish@16.0.0/src/stockfish-nnue-16-single.wasm";
+const NAMES_BASE = "https://cdn.jsdelivr.net/gh/lichess-org/chess-openings@master/";
+const TARGET_DEPTH = 16;       // heatmap search depth
+const MAX_MS = 12000;          // …or at most this long per position
+const STATS_KEY = "otr1:stats";
+const MATE_CP = 10000;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const other = (c) => (c === "w" ? "b" : "w");
+const mateToCp = (m) => (m > 0 ? MATE_CP - m : -MATE_CP - m);
+const moveObj = (u) => ({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] });
+const uciOf = (m) => m.from + m.to + (m.promotion || "");
+const epd = (fen) => fen.split(" ").slice(0, 4).join(" ");
+function fmt(cp, mate) {
+  if (mate != null && mate !== 0) return (mate > 0 ? "#" : "−#") + Math.abs(mate);
+  if (cp == null) return "…";
+  if (Math.abs(cp) < 5) return "0.0";
+  return (cp > 0 ? "+" : "−") + (Math.abs(cp) / 100).toFixed(1);
+}
+function lossClass(loss) { return loss <= 30 ? "good" : loss <= 80 ? "ok" : loss <= 200 ? "bad" : "blunder"; }
+const CLASS_WORD = { good: "Good", ok: "Inaccurate", bad: "Mistake", blunder: "Blunder" };
+
+/* ============================================================
+   Stockfish (worker when allowed, otherwise on the page)
+   ============================================================ */
+let engineUrlPromise = null;
+function engineUrl() {
+  if (!engineUrlPromise) {
+    engineUrlPromise = fetch(ENGINE_JS).then((r) => {
+      if (!r.ok) throw new Error("Could not download Stockfish (" + r.status + ")");
+      return r.text();
+    }).then((src) => URL.createObjectURL(new Blob([src], { type: "text/javascript" })) + "#" + encodeURIComponent(ENGINE_WASM));
+    engineUrlPromise.catch(() => { engineUrlPromise = null; });
+  }
+  return engineUrlPromise;
+}
+let mainFactoryPromise = null;
+function mainThreadFactory() {
+  if (!mainFactoryPromise) {
+    mainFactoryPromise = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = ENGINE_JS;
+      s.onload = () => (typeof s._exports === "function" ? resolve(s._exports) : reject(new Error("Stockfish did not initialise")));
+      s.onerror = () => reject(new Error("Could not download Stockfish"));
+      document.head.appendChild(s);
+    });
+    mainFactoryPromise.catch(() => { mainFactoryPromise = null; });
+  }
+  return mainFactoryPromise;
+}
+async function makeTransport(mode) {
+  if (mode === "worker") {
+    const w = new Worker(await engineUrl());
+    return { post: (m) => w.postMessage(m), listen: (fn) => { w.onmessage = (e) => fn(String(e.data)); },
+      onFail: (fn) => { w.onerror = (e) => fn(e.message || "worker error"); } };
+  }
+  const factory = await mainThreadFactory();
+  const sf = await factory({ locateFile: (f) => (f.indexOf(".wasm") > -1 ? ENGINE_WASM : f) });
+  return { post: (m) => (sf.__IS_SINGLE_THREADED__ ? sf.onCustomMessage(m) : sf.postMessage(m, true)),
+    listen: (fn) => sf.addMessageListener((l) => fn(String(l))), onFail: () => {} };
+}
+class Engine {
+  constructor(t) {
+    this.t = t; this.handlers = new Set(); this.chain = Promise.resolve(); this.multipv = 1; this.searching = false;
+    t.listen((l) => this.handlers.forEach((h) => h(l)));
+    t.onFail((msg) => { this.dead = msg; this.handlers.forEach((h) => h("__fail__")); });
+  }
+  post(m) { this.t.post(m); }
+  waitFor(pred, send, ms) {
+    return new Promise((resolve, reject) => {
+      const h = (l) => {
+        if (l === "__fail__") { this.handlers.delete(h); clearTimeout(t); reject(new Error(this.dead)); return; }
+        if (pred(l)) { this.handlers.delete(h); clearTimeout(t); resolve(l); }
+      };
+      const t = setTimeout(() => { this.handlers.delete(h); reject(new Error("Engine timed out")); }, ms);
+      this.handlers.add(h);
+      if (send) send();
+    });
+  }
+  async init() {
+    await this.waitFor((l) => l === "uciok", () => this.post("uci"), 30000);
+    this.post("setoption name Hash value 16");
+    await this.waitFor((l) => l === "readyok", () => this.post("isready"), 30000);
+    return this;
+  }
+  enqueue(fn) { const p = this.chain.then(fn, fn); this.chain = p.catch(() => {}); return p; }
+  configure(lines) { return this.enqueue(async () => { lines.forEach((l) => this.post(l)); await this.waitFor((l) => l === "readyok", () => this.post("isready"), 10000); }); }
+  stop() { if (this.searching) this.post("stop"); }
+  search(opts) { return this.enqueue(() => (opts.skip && opts.skip()) ? null : this._search(opts)); }
+  async _search({ fen, depth = 12, movetime, multipv = 1, onInfo }) {
+    if (multipv !== this.multipv) { this.post("setoption name MultiPV value " + multipv); this.multipv = multipv; }
+    const lines = [];
+    const h = (l) => {
+      if (!l.startsWith("info ") || l.indexOf(" pv ") < 0) return;
+      const s = l.match(/ score (cp|mate) (-?\d+)( lowerbound| upperbound)?/);
+      if (!s || s[3]) return;
+      const k = +((l.match(/ multipv (\d+)/) || [0, 1])[1]);
+      const r = { depth: +((l.match(/ depth (\d+)/) || [0, 0])[1]), cp: s[1] === "cp" ? +s[2] : null,
+        mate: s[1] === "mate" ? +s[2] : null, pv: l.split(" pv ")[1].trim().split(/\s+/) };
+      lines[k - 1] = r;
+      if (onInfo) onInfo(r);
+    };
+    this.handlers.add(h);
+    this.searching = true;
+    let bm;
+    try {
+      this.post("position fen " + fen);
+      const go = "go depth " + depth + (movetime ? " movetime " + movetime : "");
+      try { bm = await this.waitFor((l) => l.startsWith("bestmove"), () => this.post(go), (movetime || 5000) + 20000); }
+      catch (e) { this.post("stop"); bm = await this.waitFor((l) => l.startsWith("bestmove"), null, 5000); }
+    } finally { this.handlers.delete(h); this.searching = false; }
+    const best = bm.split(/\s+/)[1];
+    return { best: best && best !== "(none)" ? best : null, lines: lines.filter(Boolean) };
+  }
+}
+let engineMode = "worker";
+async function createEngine() {
+  for (;;) {
+    try {
+      const e = new Engine(await makeTransport(engineMode));
+      await Promise.race([e.init(), sleep(engineMode === "worker" ? 15000 : 60000).then(() => { throw new Error("Engine did not start"); })]);
+      return e;
+    } catch (err) {
+      if (engineMode === "worker") { engineMode = "main"; continue; }
+      throw err;
+    }
+  }
+}
+// Two engines: one scores every move for the heatmap, the other plays against you at the chosen rating
+const engines = { ana: null, play: null };
+function getEngine(kind) {
+  if (!engines[kind]) {
+    // start the second engine only after the first so the worker/page decision is made once
+    engines[kind] = (kind === "play" && engines.ana ? engines.ana.catch(() => {}) : Promise.resolve()).then(createEngine);
+    engines[kind].catch(() => { engines[kind] = null; });
+  }
+  return engines[kind];
+}
+
+/* ============================================================
+   State
+   ============================================================ */
+const S = {
+  game: new Chess(), records: [], redo: [],
+  mode: "practice", mapMode: "always", user: "w", flipped: false,
+  rating: 1500, appliedRating: null,
+  opening: null, lineIdx: 0, lineDone: false, lineErrors: 0, lineReported: false,
+  selected: null, preview: null, book: [], hotBook: null, bookArrows: true, lastAnnounced: null, dragMoved: false, moveToken: 0, engineThinking: false,
+};
+const cache = new Map();         // fen -> { depth, moves: Map(uci -> {cp, mate, san}), done }
+
+/* ---- Book: every library line, indexed by move sequence ---- */
+const BOOK = [];
+LIBRARY.forEach((o) => o.lines.forEach((l, i) => BOOK.push({ o, i, moves: l[1].split(" ") })));
+function bookNext(hist) {
+  const res = new Map();                                   // next SAN -> matching lines
+  for (const b of BOOK) {
+    if (b.moves.length <= hist.length) continue;
+    let ok = true;
+    for (let k = 0; k < hist.length; k++) if (b.moves[k] !== hist[k]) { ok = false; break; }
+    if (!ok) continue;
+    const s = b.moves[hist.length];
+    if (!res.has(s)) res.set(s, []);
+    res.get(s).push(b);
+  }
+  return res;
+}
+function bookLabel(entries) {
+  const ops = [...new Set(entries.map((e) => e.o))];
+  if (ops.length === 1) {
+    const o = ops[0], ls = [...new Set(entries.map((e) => e.i))];
+    return ls.length === 1 ? `${o.name}: ${o.lines[ls[0]][0]}` : `${o.name} (${ls.length} lines)`;
+  }
+  if (ops.length <= 2) {
+    const [a, b] = ops.map((o) => o.name), pa = a.split(": "), pb = b.split(": ");
+    return pa.length > 1 && pb.length > 1 && pa[0] === pb[0] ? `${a} · ${pb.slice(1).join(": ")}` : `${a} · ${b}`;
+  }
+  // many openings share this move: name the position it leads to instead of listing them all
+  const e = entries[0], c = new Chess();
+  const ply = S.records.length + 1;
+  for (let k = 0; k < ply; k++) c.move(e.moves[k]);
+  const n = names.get(epd(c.fen()));
+  return n ? `${n.name} · ${ops.length} openings` : `${ops.length} openings`;
+}
+// the moves every line of an opening shares = its defining ("canonical") moves
+function canonLen(o) {
+  const ls = visibleLines(o).map((i) => lineArr(o, i));
+  let k = 0;
+  while (ls.every((l) => l[k] !== undefined && l[k] === ls[0][k])) k++;
+  return k;
+}
+// Where a line separates from its nearest sibling in the same opening
+function branchPly(o, i) {
+  const L = lineArr(o, i);
+  let sep = 0;
+  visibleLines(o).forEach((j) => {
+    if (j === i) return;
+    const M = lineArr(o, j); let k = 0;
+    while (k < L.length && k < M.length && L[k] === M[k]) k++;
+    sep = Math.max(sep, k);
+  });
+  return sep;
+}
+function lineFeatures(moves) {
+  const c = new Chess(); const castle = { w: null, b: null };
+  for (const san of moves) { const m = c.move(san); if (!m) break; if (m.san.startsWith("O-O")) castle[m.color] = m.san === "O-O" ? "short" : "long"; }
+  const pawns = { w: {}, b: {} }; let mat = 0, queens = 0;
+  const V = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+  for (const f of "abcdefgh") for (let r = 1; r <= 8; r++) {
+    const p = c.get(f + r); if (!p) continue;
+    mat += (p.color === "w" ? 1 : -1) * V[p.type];
+    if (p.type === "q") queens++;
+    if (p.type === "p") pawns[p.color][f] = (pawns[p.color][f] || 0) + 1;
+  }
+  const doubled = (col) => Object.keys(pawns[col]).filter((f) => pawns[col][f] > 1);
+  return { castle, mat, queensOff: queens === 0, doubled: { w: doubled("w"), b: doubled("b") } };
+}
+function describeFeatures(F) {
+  const out = [];
+  out.push(F.queensOff ? "queens are traded" : "queens stay on");
+  const cs = (col, name) => F.castle[col] ? `${name} castles ${F.castle[col]}` : `${name} hasn't castled`;
+  out.push(cs("w", "White")); out.push(cs("b", "Black"));
+  ["w", "b"].forEach((col) => { if (F.doubled[col].length) out.push(`${col === "w" ? "White" : "Black"} has doubled ${F.doubled[col].join("- and ")}-pawns`); });
+  if (F.mat >= 1) out.push(`White is ${F.mat === 1 ? "a pawn" : F.mat + " points"} up`);
+  if (F.mat <= -1) out.push(`Black is ${F.mat === -1 ? "a pawn" : -F.mat + " points"} up`);
+  return out;
+}
+function branchNoteHtml(o, i) {
+  const sep = branchPly(o, i);
+  const me = lineArr(o, i);
+  if (sep >= me.length) return "";
+  const sibs = visibleLines(o).map((j) => ({ j, l: [lineTitle(o, j)], M: lineArr(o, j) })).filter((x) => x.j !== i && x.M.length > sep && x.M.slice(0, sep).join(" ") === me.slice(0, sep).join(" ") && x.M[sep] !== me[sep]);
+  if (!sibs.length && sep === 0) return "";
+  const mine = describeFeatures(lineFeatures(me));
+  let html = `<h4 style="margin-top:10px">Where the lines split: ${esc(moveNo(sep, me[sep]))}</h4>`;
+  const note = (typeof NOTES !== "undefined" && NOTES[o.id] && NOTES[o.id][i]) || "";
+  if (note) html += `<p style="margin:0 0 6px">${esc(note)}</p>`;
+  html += `<p class="meta" style="margin:0">At the end of this line: ${esc(mine.join(", "))}.</p>`;
+  for (const sb of sibs.slice(0, 2)) {
+    const theirs = describeFeatures(lineFeatures(sb.M));
+    const diff = theirs.filter((t) => !mine.includes(t));
+    html += `<p class="meta" style="margin:4px 0 0">In <em>${esc(sb.l[0])}</em> (${esc(moveNo(sep, sb.M[sep]))}) instead: ${esc((diff.length ? diff : ["a similar structure"]).join(", "))}.</p>`;
+  }
+  return html;
+}
+function moveNo(ply, san) { const n = Math.floor(ply / 2) + 1; return ply % 2 === 0 ? `${n}.${san}` : `${n}...${san}`; }
+/* ---- Backward fade ----
+   A line's arrows are all shown for the first N clean run-throughs (N = "full viewings").
+   After that, each clean run-through hides one more of YOUR moves, starting from the last one.
+   A miss restarts the line (replay up to the missed move) and that attempt doesn't advance. */
+function viewsSetting() { return +($("views").value || 2); }
+// Signposts: your moves where this line differs from a sibling line that got here the same way.
+// You can't recall "which line am I on", so these always keep their arrow.
+function signposts(o, i, side) {
+  const me = lineArr(o, i), out = new Set();
+  const sideOf = (j) => (o.lines[j][2] && o.lines[j][2].side) || o.side;
+  visibleLines(o).forEach((j) => {
+    if (j === i || sideOf(j) !== sideOf(i)) return;   // trap lines played from the other side aren't your choices
+    const M = lineArr(o, j); let k = 0;
+    while (k < me.length && k < M.length && me[k] === M[k]) k++;
+    if (k < me.length && k < M.length && (k % 2 === 0 ? "w" : "b") === side) out.add(k);
+  });
+  return out;
+}
+function userPlies(o, i, side) {
+  const n = lineArr(o, i).length, out = [];
+  for (let k = 0; k < n; k++) if ((k % 2 === 0 ? "w" : "b") === side) out.push(k);
+  return out;
+}
+function fadeState(o, i, side) {
+  const v = loadStats()[lineKey(o, i)] || {};
+  const total = userPlies(o, i, side).length;
+  const hide = Math.min(total, v.hide || 0);
+  return { total, hide, views: v.views || 0 };
+}
+function guideForPly(ply) {
+  const o = S.opening, i = S.lineIdx;
+  if (S.revealPly === ply) return true;                       // arrow appeared after 3 seconds
+  if (S.replay && ply === S.replay.missPly) return false;
+  const up = userPlies(o, i, S.user), u = up.indexOf(ply);
+  if (u < 0) return false;
+  const f = fadeState(o, i, S.user);
+  return u < f.total - f.hide;
+}
+function setHide(h) {
+  const st = loadStats(), k = lineKey(S.opening, S.lineIdx), v = st[k] || {};
+  v.hide = Math.max(0, h); v.mastered = v.hide >= fadeState(S.opening, S.lineIdx, S.user).total;
+  st[k] = v; saveStats(st);
+}
+/* ---- Line length (Practice only) ----
+   Lines are cut to N full moves each; "Max" (11 on the slider) keeps them whole. Trap lines always
+   play to the end, otherwise the trap would be cut off. Lines that become identical when cut
+   are merged into one entry. */
+function depthPlies() { const v = +($("depth").value || 5); return v >= 11 ? Infinity : v * 2; }
+function fullArr(o, i) { return o.lines[i][1].split(" "); }
+// where a full line first differs from its nearest sibling
+function fullBranch(o, i) {
+  if (!o._fb) o._fb = {};
+  if (o._fb[i] != null) return o._fb[i];
+  const L = fullArr(o, i); let sep = 0;
+  o.lines.forEach((l, j) => { if (j === i) return; const M = fullArr(o, j); let k = 0; while (k < L.length && k < M.length && L[k] === M[k]) k++; sep = Math.max(sep, k); });
+  return (o._fb[i] = sep);
+}
+// cut to the chosen length, but always at least one full move past the point where the line
+// becomes its own variation (the Najdorf's lines all share their first 5 moves)
+function lineArr(o, i) {
+  const a = fullArr(o, i);
+  if (/^Trap/.test(o.lines[i][0])) return a;
+  return a.slice(0, Math.max(depthPlies(), fullBranch(o, i) + 2));
+}
+function lineRep(o, i) { const k = lineArr(o, i).join(" "); for (let j = 0; j < i; j++) if (lineArr(o, j).join(" ") === k) return j; return i; }
+function visibleLines(o) { return o.lines.map((_, i) => i).filter((i) => lineRep(o, i) === i); }
+function lineTitle(o, i) {
+  const same = o.lines.map((_, j) => j).filter((j) => lineRep(o, j) === i).map((j) => o.lines[j][0]);
+  return same.length <= 2 ? same.join(" / ") : `${same[0]} / ${same[1]} +${same.length - 2}`;
+}
+function inGuide() {
+  return S.mode === "practice" && S.opening && onBook() && isUserTurn() && !!bookMove() && guideForPly(S.records.length);
+}
+function moveLabel(ply, san) { const n = Math.floor(ply / 2) + 1; return ply % 2 === 0 ? `${n}.${san}` : `${n}...${san}`; }
+// blue arrows for the current position
+function bookArrows() {
+  if (S.preview || S.game.game_over()) return [];
+  const hist = S.records.map((r) => r.san);
+  const toUci = (san) => { const m = new Chess(S.game.fen()).move(san); return m ? { uci: uciOf(m), from: m.from, to: m.to } : null; };
+  if (S.mode === "practice") {
+    if (!inGuide() || !isUserTurn()) return [];
+    const san = bookMove(); const u = san && toUci(san);
+    const sign = signposts(S.opening, S.lineIdx, S.user).has(S.records.length);
+    return u ? [{ ...u, san, label: sign ? `Signpost: this line (${lineTitle(S.opening, S.lineIdx)}) goes this way` : S.opening.name, num: 0, sign }] : [];
+  }
+  if (S.mode === "play" && !isUserTurn()) return [];
+  if (S.mode === "explore" && !S.bookArrows) return [];
+  const out = [];
+  let n = 1;
+  for (const [san, entries] of bookNext(hist)) {
+    const u = toUci(san); if (!u) continue;
+    out.push({ ...u, san, label: bookLabel(entries), num: n++ });
+  }
+  return out;
+}
+let anaFen = null;
+
+/* ============================================================
+   Opening names: Lichess' public list, matched by position
+   ============================================================ */
+const names = new Map();         // epd -> {eco, name}
+function seedNamesFromLibrary() {
+  // which openings pass through each move sequence
+  const owners = new Map();
+  for (const b of BOOK) for (let k = 1; k <= b.moves.length; k++) {
+    const key = b.moves.slice(0, k).join(" ");
+    if (!owners.has(key)) owners.set(key, new Set());
+    owners.get(key).add(b.o);
+  }
+  for (const b of BOOK) {
+    const c = new Chess();
+    b.moves.forEach((san, k) => {
+      c.move(san);
+      const pos = epd(c.fen()), prev = names.get(pos);
+      if (k === b.moves.length - 1) { if (!prev || prev.lib) names.set(pos, { eco: "", name: `${b.o.name}: ${b.o.lines[b.i][0]}`, lib: true }); return; }
+      // a position only one library opening reaches gets that opening's name
+      const own = owners.get(b.moves.slice(0, k + 1).join(" "));
+      if (own && own.size === 1 && !prev) names.set(pos, { eco: "", name: b.o.name, lib: true });
+    });
+  }
+}
+async function loadNames() {
+  $("namesStatus").textContent = "Loading opening names…";
+  try {
+    const texts = await Promise.all("abcde".split("").map((f) => fetch(NAMES_BASE + f + ".tsv").then((r) => { if (!r.ok) throw new Error(r.status); return r.text(); })));
+    const rows = [];
+    for (const t of texts) {
+      const lines = t.split("\n").filter((l) => l.trim());
+      const head = lines.shift().split("\t").map((h) => h.trim().toLowerCase());
+      const iE = head.indexOf("eco"), iN = head.indexOf("name"), iP = head.indexOf("pgn"), iEpd = head.indexOf("epd");
+      for (const l of lines) { const c = l.split("\t"); rows.push({ eco: c[iE], name: c[iN], pgn: c[iP], epd: iEpd >= 0 ? c[iEpd] : null }); }
+    }
+    // replay each named line in small chunks so the page stays responsive
+    let i = 0;
+    await new Promise((resolve) => {
+      const step = () => {
+        const end = Math.min(rows.length, i + 150);
+        for (; i < end; i++) {
+          const r = rows[i];
+          let key = r.epd;
+          if (!key) {
+            const c = new Chess();
+            const sans = String(r.pgn || "").replace(/\d+\.(\.\.)?/g, " ").trim().split(/\s+/).filter(Boolean);
+            let ok = true;
+            for (const s of sans) { if (!c.move(s, { sloppy: true })) { ok = false; break; } }
+            if (!ok) continue;
+            key = epd(c.fen());
+          }
+          const prev = names.get(key);
+          if (!prev || prev.lib) names.set(key, { eco: r.eco, name: r.name });
+        }
+        if (i < rows.length) setTimeout(step, 0); else resolve();
+      };
+      step();
+    });
+    $("namesStatus").textContent = `${rows.length.toLocaleString()} opening names loaded.`;
+  } catch (e) {
+    $("namesStatus").textContent = "Couldn't load the full opening-name list; using the built-in names.";
+  }
+  renderName();
+}
+function currentName() {
+  const fens = S.records.map((r) => r.fenAfter);
+  for (let i = fens.length - 1; i >= 0; i--) { const n = names.get(epd(fens[i])); if (n) return { ...n, ply: i + 1 }; }
+  return null;
+}
+function renderName() {
+  const n = currentName();
+  if (S.mode === "play" && n && n.name !== S.lastAnnounced && n.ply === S.records.length) {
+    S.lastAnnounced = n.name;
+    const box = $("announceBox");
+    box.hidden = false;
+    box.innerHTML = `<h4>Opening</h4><div>You're now in the <strong>${esc(n.name)}</strong>${n.eco ? ` <span class="meta">(${esc(n.eco)})</span>` : ""}.</div>`;
+    box.classList.remove("announce"); void box.offsetWidth; box.classList.add("announce");
+  }
+  if (!n) { $("openingName").innerHTML = `<span class="nm">${S.records.length ? "Unnamed opening" : "Starting position"}</span>`; return; }
+  const left = n.ply < S.records.length ? ` <span class="meta">(since move ${Math.ceil(n.ply / 2)})</span>` : "";
+  $("openingName").innerHTML = (n.eco ? `<span class="eco">${esc(n.eco)}</span>` : "") + `<span class="nm" title="${esc(n.name)}">${esc(n.name)}</span>${left}`;
+}
+
+/* ============================================================
+   Heatmap analysis: MultiPV over every legal move, refined live
+   ============================================================ */
+let renderQueued = false;
+function scheduleRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; if (S.missing) return; renderBoard(); renderPanel(); }); } }
+
+async function analyse(fen) {
+  anaFen = fen;
+  const have = cache.get(fen);
+  if (have && have.done) { scheduleRender(); return; }
+  let eng;
+  try { eng = await getEngine("ana"); } catch (e) { return; }
+  eng.stop();
+  if (anaFen !== fen) return;
+  const legal = new Chess(fen).moves({ verbose: true });
+  if (!legal.length) return;
+  const sanOf = {}; legal.forEach((m) => (sanOf[uciOf(m)] = m.san));
+  const entry = have || { depth: 0, moves: new Map(), done: false };
+  cache.set(fen, entry);
+  const r = await eng.search({
+    fen, depth: TARGET_DEPTH, movetime: MAX_MS, multipv: Math.min(legal.length, 256),
+    skip: () => anaFen !== fen,
+    onInfo: (x) => {
+      const u = x.pv[0];
+      if (!sanOf[u]) return;
+      entry.moves.set(u, { cp: x.mate != null ? mateToCp(x.mate) : x.cp, mate: x.mate, san: sanOf[u], depth: x.depth });
+      if (x.depth > entry.depth) entry.depth = x.depth;
+      if (anaFen === fen) scheduleRender();
+    },
+  });
+  if (r && anaFen === fen) { entry.done = true; scheduleRender(); }
+}
+function scored(fen) {
+  const e = cache.get(fen); if (!e || !e.moves.size) return null;
+  const list = [...e.moves.entries()].map(([uci, v]) => ({ uci, ...v }));
+  const best = Math.max(...list.map((m) => m.cp));
+  list.forEach((m) => { m.loss = best - m.cp; m.cls = lossClass(m.loss); });
+  list.sort((a, b) => b.cp - a.cp);
+  return { list, best, depth: e.depth, done: e.done };
+}
+
+/* ============================================================
+   Book lines + progress
+   ============================================================ */
+const lineKey = (o, i) => o.id + ":" + o.lines[i][0];
+/* Progress used to be keyed by list position; convert once to line names so moving or
+   adding lines never shifts anyone's progress onto the wrong line. */
+const OLD_LAYOUT = {"italian":["Giuoco Pianissimo","Giuoco Piano, 6.cxd4","Two Knights, 4.d3"],"ruy":["Closed (Morphy Defence)","Berlin endgame","Exchange Variation","Marshall Attack"],"scotch":["Mieses Variation","Classical, 4...Bc5","Scotch Gambit"],"vienna":["Vienna Gambit","Closed, 3.g3","Frankenstein-Dracula"],"najdorf":["English Attack","6.Bg5 main line","Opocensky, 6.Be2","6.h3"],"dragon":["Yugoslav Attack, 9.Bc4","Yugoslav Attack, 9.O-O-O d5","Classical, 6.Be2"],"alapin":["2...d5","2...Nf6","2...e6"],"french":["Winawer","Classical Steinitz","Advance","Tarrasch","Exchange"],"caro":["Classical, 4...Bf5","Advance","Panov Attack","Two Knights","Trap: smothered mate"],"scandi":["Main line, 3...Qa5","3...Qd6","Modern, 2...Nf6"],"pirc":["Austrian Attack","Classical","150 Attack"],"petrov":["Classical, 5.d4","5.Nc3","Steinitz, 3.d4","Trap: the copycat"],"qgd":["Orthodox","Exchange","Ragozin","Tarrasch","Trap: Elephant Trap"],"qga":["Main line, 3.Nf3","Central, 3.e4","Trap: hanging on to the pawn"],"slav":["Main line, 4...dxc4","Exchange","Semi-Slav Meran","Chebanenko, 4...a6"],"kid":["Classical, Mar del Plata","Sämisch","Four Pawns Attack","Fianchetto"],"nimzo":["Rubinstein, 4.e3","Classical, 4.Qc2","Sämisch"],"qid":["4.g3 Ba6","Petrosian, 4.a3","4.e3"],"grunfeld":["Exchange","Russian System","4.Bf4"],"dutch":["Leningrad","Stonewall","Classical","Staunton Gambit"],"benoni":["Classical","Taimanov (Flick-Knife)","Fianchetto"],"london":["vs ...d5 and ...c5","vs King's Indian setup","vs ...Qb6"],"catalan":["Open, 4...dxc4","Closed","3...Bb4+"],"eng-revsic":["5...Nb6, a3 and b4","5...Nb6, Rb1 plan","5...Be6, Be3 and Rc1"],"eng-4n":["4.g3 Bb4","4.g3 d5","4.e3"],"eng-closed":["Botvinnik, 5.e4","5.d3 and b4","5.e3 and d4"],"eng-sym":["Nf3 with ...e6","Botvinnik setup, e3 and d4","Nf3 and d4","a3 and b4 race"],"eng-hedgehog":["Rd1 and b3","b3 and Bb2","e4 and Qe3"],"eng-kid":["Botvinnik, 5.e4","Nf3 and b4","Nf3 and d4"],"eng-e6":["Mikenas-Carls, 3...d5","Mikenas-Carls, 3...c5","Queen's Gambit transposition"],"reti":["vs ...d5 and ...e6","Réti Accepted","Advance, 2...d4","King's Indian Attack"],"friedliver":["The sacrifice","Lolli Attack","Correct defence, 5...Na5"],"traxler":["5.Nxf7 Bxf2+","5.Bxf7+"],"stafford":["Trap: queen grab","Refutation, 5.e5","Quiet 5.d3 and Be2"],"englund":["Trap: Qc1#","Refutation, 4.Qd5"],"budapest":["Trap: axb4?? Nd3#","Main line, 4.Bf4"],"albin":["Trap: Lasker Trap","Main line, 4.Nf3"],"morra":["Main line","Trap: Siberian Trap","Declined, 3...Nf6"],"evans":["Accepted, 5...Ba5","Accepted, 5...Be7","Declined"],"kingsgambit":["Kieseritzky","Fischer Defence","Falkbeer Countergambit","Trap: declined with 2...Bc5"],"bdg":["Euwe Defence","Teichmann Defence","Bogoljubov Defence"]};
+const MOVED = {
+  "scotch:Scotch Gambit": "scotchgambit:4...Nf6 5.e5",
+  "scandi:Modern, 2...Nf6": "modernscandi:3.d4 Nxd5",
+  "qgd:Tarrasch": "tarrasch:Main line, 6.g3",
+  "slav:Semi-Slav Meran": "semislav:Meran, 6.Bd3",
+  "dutch:Stonewall": "stonewall:vs fianchetto, 7.c4",
+  "reti:King's Indian Attack": "kia:vs ...c6 and ...Bg4",
+};
+function migrateStats() {
+  let st; try { st = JSON.parse(lsGet(STATS_KEY) || "{}"); } catch (e) { return; }
+  if (st.__v === 3) return;
+  if (st.__v === 2) {
+    const out3 = {};
+    for (const [k, v] of Object.entries(st)) out3[k.replace(/Defence/g, "Defense").replace(/defence/g, "defense")] = v;
+    out3.__v = 3; saveStats(out3); return;
+  }
+  const out = {};
+  for (const [k, v] of Object.entries(st)) {
+    if (k.startsWith("__")) { out[k] = v; continue; }
+    const m = k.match(/^(.+):(\d+)$/);
+    let nk = k;
+    if (m && OLD_LAYOUT[m[1]] && OLD_LAYOUT[m[1]][+m[2]] !== undefined) nk = m[1] + ":" + OLD_LAYOUT[m[1]][+m[2]];
+    nk = MOVED[nk] || nk;
+    out[nk.replace(/Defence/g, "Defense").replace(/defence/g, "defense")] = v;
+  }
+  out.__v = 3;
+  saveStats(out);
+}
+function loadStats() { try { return JSON.parse(lsGet(STATS_KEY) || "{}"); } catch (e) { return {}; } }
+function saveStats(s) { lsSet(STATS_KEY, JSON.stringify(s)); }
+function currentLine() { return S.mode === "practice" && S.opening ? S.opening.lines[S.lineIdx] : null; }
+function lineMoves() { return currentLine() ? lineArr(S.opening, S.lineIdx) : []; }
+function onBook() {
+  const L = lineMoves(); if (!L.length) return false;
+  return S.records.every((r, i) => r.san === L[i]);
+}
+function bookMove() {
+  const L = lineMoves();
+  if (!L.length || !onBook() || S.records.length >= L.length) return null;
+  return L[S.records.length];
+}
+function lineSide() {
+  const l = currentLine(); const pick = $("sidePick").value;
+  if (pick !== "auto") return pick;
+  return (l && l[2] && l[2].side) || S.opening.side;
+}
+function reportLine(clean, assisted) {
+  if (S.lineReported || !currentLine()) return;
+  S.lineReported = true;
+  const st = loadStats(); const k = lineKey(S.opening, S.lineIdx);
+  const v = st[k] || { seen: 0, clean: 0, errors: 0, last: 0, ms: 0 };
+  st.__seq = (st.__seq || 0) + 1;                 // one tick per line practiced, across all openings
+  v.seen++; if (clean && !assisted) v.clean++; else if (!clean) v.errors++; v.last = Date.now(); v.seq = st.__seq;
+  if (clean && !assisted) {
+    v.views = (v.views || 0) + 1;
+    const total = userPlies(S.opening, S.lineIdx, S.user).length;
+    if (v.views >= viewsSetting()) v.hide = Math.min(total, (v.hide || 0) + 1);
+    v.mastered = (v.hide || 0) >= total;
+  }
+  st[k] = v; saveStats(st);
+  renderOpeningCard();
+}
+/* ---- Study-plan ordering ----
+   New material first (wide and shallow), then started, then finished. Everything drifts back up
+   as OTHER lines are practiced: +DRIFT priority per line practiced since you last saw it. */
+const DRIFT = 3;
+function lineInfo(o, i, st) {
+  const v = st[lineKey(o, i)] || {};
+  const since = v.seq ? (st.__seq || 0) - v.seq : 0;
+  const base = !v.seen ? 100 : !v.mastered ? 60 : 0;
+  return { v, since, base, prio: base + since * DRIFT, sym: !v.seen ? "☆" : v.mastered ? "★" : "◐" };
+}
+function openingInfo(o, st) {
+  const ls = visibleLines(o).map((i) => lineInfo(o, i, st));
+  const seen = ls.filter((x) => x.v.seen).length, clean = ls.filter((x) => x.v.mastered).length;
+  const ms = ls.reduce((a, x) => a + (x.v.ms || 0), 0);
+  const lastSeq = Math.max(0, ...ls.map((x) => x.v.seq || 0));
+  const since = lastSeq ? (st.__seq || 0) - lastSeq : 0;
+  const n = ls.length;
+  const base = !seen ? 100 : clean === n ? 0 : 50 + 30 * (1 - clean / n);
+  return { seen, clean, n, ms, since, prio: base + since * DRIFT, sym: !seen ? "☆" : clean === n ? "★" : "◐" };
+}
+const mins = (ms) => Math.round((ms || 0) / 60000);
+function sortedLines(o) {
+  const st = loadStats();
+  return visibleLines(o).map((i) => ({ i, ...lineInfo(o, i, st) })).sort((a, b) => b.prio - a.prio || a.i - b.i);
+}
+function pickNextLine() {
+  const order = sortedLines(S.opening).filter((x) => x.i !== S.lineIdx || visibleLines(S.opening).length === 1);
+  return order.length ? order[0].i : 0;
+}
+// Active practice time: counted in 5 s ticks while the page is visible and you've moved recently
+let S_lastActive = 0;
+function markActive() { S_lastActive = Date.now(); }
+setInterval(() => {
+  if (S.mode !== "practice" || !currentLine() || document.visibilityState !== "visible") return;
+  if (Date.now() - S_lastActive > 120000) return;
+  const st = loadStats(); const k = lineKey(S.opening, S.lineIdx);
+  const v = st[k] || { seen: 0, clean: 0, errors: 0, last: 0, ms: 0 };
+  v.ms = (v.ms || 0) + 5000; st[k] = v; saveStats(st);
+}, 5000);
+
+/* ============================================================
+   Game flow
+   ============================================================ */
+function resetGame() {
+  S.moveToken++; S.engineThinking = false;
+  if (engines.play) engines.play.then((e) => e.stop()).catch(() => {});
+  S.game = new Chess(); S.records = []; S.redo = []; S.selected = null; S.preview = null;
+  S.lineDone = false; S.lineErrors = 0; S.lineReported = false; S.lineEndMsg = "";
+  S.hotBook = null; S.lastAnnounced = null; S.missing = false;
+  clearTimeout(S.revealTimer); S.revealPly = null;
+  $("verdictBox").hidden = true; $("announceBox").hidden = true;
+}
+function start() {
+  if (S.opening) S.lineIdx = lineRep(S.opening, S.lineIdx);
+  resetGame();
+  S.replay = null; S.attemptMiss = false; S.attemptAssisted = false; S.memStreak = 0;
+  if (S.mode === "practice") {
+    S.user = lineSide();
+    const l = currentLine();
+    const trap = l[2] && l[2].trap;
+    $("lineBox").hidden = false;
+    $("lineBox").innerHTML = `<h4>Line</h4><div><strong>${esc(S.opening.name)}: ${esc(lineTitle(S.opening, S.lineIdx))}</strong></div>
+      <p class="meta" style="margin:4px 0 0">${Math.ceil(lineMoves().length / 2)} moves${lineMoves().length < fullArr(S.opening, S.lineIdx).length ? ` (of ${Math.ceil(fullArr(S.opening, S.lineIdx).length / 2)} in the full line)` : ""} · you play ${S.user === "w" ? "White" : "Black"}. The engine plays the book moves for the other side.</p>
+      ${trap ? `<p class="note" style="margin:8px 0 0">${esc(trap)}</p>` : ""}<p class="meta" id="lineProgress" style="margin:6px 0 0"></p><div id="lineActions"></div><div id="branchNote"></div>`;
+  } else {
+    S.user = S.mode === "play" ? "b" : "w";
+    $("lineBox").hidden = true;
+  }
+  S.flipped = S.mode === "explore" ? false : S.user === "b";
+  if (S.mode === "practice") { buildOpeningSelect(); buildLineSelect(); }
+  renderOpeningCard();
+  renderScore();
+  afterPositionChange();
+}
+function isUserTurn() { return S.mode === "explore" || S.game.turn() === S.user; }
+
+function afterPositionChange() {
+  S.selected = null;
+  renderName(); renderBoard(); renderPanel(); updateLineProgress();
+  if (S.game.game_over()) { gameOverNote(); return; }
+  if (!isUserTurn()) engineReply();
+  else {
+    analyse(S.game.fen());
+    // 3-second rule: any from-memory move shows its arrow if you haven't moved after 3 seconds
+    const ply = S.records.length;
+    if (S.mode === "practice" && currentLine() && onBook() && bookMove() && !guideForPly(ply)) {
+      clearTimeout(S.revealTimer);
+      const tok = S.moveToken;
+      S.revealTimer = setTimeout(() => { if (tok === S.moveToken) { S.revealPly = ply; renderBoard(); renderPanel(); } }, 3000);
+    }
+  }
+}
+function gameOverNote() {
+  const g = S.game;
+  const msg = g.in_checkmate() ? (g.turn() === "w" ? "Black" : "White") + " wins by checkmate." : "Draw.";
+  $("turnInfo").textContent = msg;
+  if (S.mode === "practice" && !S.lineReported && S.lineDone) reportLine(!S.attemptMiss, S.attemptAssisted);
+}
+
+async function applyStrength(eng) {
+  if (S.appliedRating === S.rating) return;
+  const r = S.rating;
+  const lines = r >= 1320
+    ? ["setoption name Skill Level value 20", "setoption name UCI_LimitStrength value true", "setoption name UCI_Elo value " + r]
+    : ["setoption name UCI_LimitStrength value false", "setoption name Skill Level value " + Math.max(0, Math.round((r - 800) / 104))];
+  await eng.configure(lines);
+  S.appliedRating = r;
+}
+async function engineReply() {
+  const tok = ++S.moveToken;
+  S.engineThinking = true; renderPanel();
+  let book = bookMove();
+  if (!book && S.mode === "play") {          // steer into a library opening while one fits
+    const opts = [...bookNext(S.records.map((r) => r.san)).entries()].flatMap(([san, es]) => es.map(() => san));
+    if (opts.length) book = opts[Math.floor(Math.random() * opts.length)];
+  }
+  let uci = null;
+  if (book) {
+    await sleep(350);
+    if (tok !== S.moveToken) return;
+    const m = new Chess(S.game.fen()).move(book);
+    uci = m ? uciOf(m) : null;
+  }
+  if (!uci) {
+    let eng;
+    try { eng = await getEngine("play"); } catch (e) { $("engineStatus").textContent = "Engine failed: " + e.message; return; }
+    await applyStrength(eng);
+    if (tok !== S.moveToken) return;
+    const ms = S.rating >= 2400 ? 900 : S.rating >= 1800 ? 600 : 400;
+    const r = await eng.search({ fen: S.game.fen(), depth: 22, movetime: ms, skip: () => tok !== S.moveToken });
+    if (!r || tok !== S.moveToken) return;
+    uci = r.best;
+  }
+  S.engineThinking = false;
+  if (!uci || tok !== S.moveToken) return;
+  makeMove(moveObj(uci), false);
+}
+
+function makeMove(mo, byUser) {
+  const fenBefore = S.game.fen();
+  const expected = bookMove();
+  const wasGuided = S.mode === "practice" && inGuide();
+  const m = S.game.move({ from: mo.from, to: mo.to, promotion: mo.promotion || "q" });
+  if (!m) return false;
+  const rec = { san: m.san, uci: uciOf(m), from: m.from, to: m.to, fenBefore, fenAfter: S.game.fen(), byUser, book: expected ? m.san === expected : null, expected, guided: wasGuided };
+  // grade the move from the heatmap of the position before it (whatever depth was reached)
+  const sc = scored(fenBefore);
+  if (sc) {
+    const me = sc.list.find((x) => x.uci === rec.uci);
+    if (me) { rec.cp = me.cp; rec.mate = me.mate; rec.loss = me.loss; rec.cls = me.cls; }
+    rec.bestSan = sc.list[0].san; rec.bestCp = sc.list[0].cp; rec.bestMate = sc.list[0].mate; rec.bestUci = sc.list[0].uci; rec.depth = sc.depth;
+  }
+  S.records.push(rec);
+  if (byUser) {
+    S.redo = [];
+    clearTimeout(S.revealTimer);
+    if (S.mode === "practice" && expected && rec.book) {
+      if (!rec.guided) { S.memStreak = (S.memStreak || 0) + 1; S.popSq = rec.to; addScore(1); }
+      else if (S.revealPly === S.records.length - 1) { S.attemptAssisted = true; S.memStreak = 0; rec.hinted = true; }
+    }
+    if (S.mode === "practice" && expected && !rec.book) {
+      // a miss: show the book move, then restart the line and replay up to this move
+      S.lineErrors++; S.attemptMiss = true; S.memStreak = 0;
+      const ply = S.records.length - 1;
+      showMiss(rec, ply);
+      S.moveToken++;
+      const tok = S.moveToken;
+      // take the wrong move back, flash the right piece, slide it to its square, then replay
+      S.game.undo(); S.records.pop();
+      S.missing = true;
+      renderName(); renderBoard(); renderPanel();
+      showCorrectMove(fenBefore, expected, tok, () => {
+        setTimeout(() => { if (tok === S.moveToken) { S.missing = false; startReplay(ply); } }, 1400);
+      });
+      return true;
+    }
+    if (S.replay && S.records.length - 1 === S.replay.missPly) S.replay.passed = true;
+    if (S.mode !== "explore" || S.mapMode !== "off") showVerdict(rec);
+  }
+  if (S.mode === "practice" && currentLine() && onBook() && S.records.length === lineMoves().length && !S.lineDone) {
+    S.lineDone = true; reportLine(!S.attemptMiss, S.attemptAssisted);
+    S.replay = null;
+    const f = fadeState(S.opening, S.lineIdx, S.user);
+    S.lineEndMsg = S.attemptMiss ? "Finished, with a miss: the arrows stay as they are for next time."
+      : S.attemptAssisted ? "Finished, with a hint: the arrows stay as they are for next time."
+      : f.hide >= f.total ? "★ Played entirely from memory." : f.hide ? `Next time the last ${f.hide} of your ${f.total} moves are from memory.` : `Viewing ${Math.min(f.views, viewsSetting())} of ${viewsSetting()} done.`;
+  }
+  S.moveToken++;
+  afterPositionChange();
+  return true;
+}
+
+/* ---- Score: +1 for every move played correctly from memory, kept per day ---- */
+const SCORE_KEY = "otr1:scores";
+function loadScores() { try { return JSON.parse(lsGet(SCORE_KEY) || "{}"); } catch (e) { return {}; } }
+function today() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function addScore(n) {
+  const sc = loadScores(); const t = today();
+  sc[t] = (sc[t] || 0) + n;
+  lsSet(SCORE_KEY, JSON.stringify(sc));
+  renderScore(n);
+}
+function renderScore(justAdded) {
+  const box = $("scoreBox");
+  if (S.mode !== "practice") { box.hidden = true; return; }
+  const sc = loadScores(), vals = Object.values(sc);
+  const t = sc[today()] || 0, best = Math.max(0, ...vals), total = vals.reduce((a, b) => a + b, 0);
+  box.hidden = false;
+  box.innerHTML = `<div><h4 style="margin:0">Score today</h4><span class="big">${t}</span>${justAdded ? `<span class="plus">+${justAdded}</span>` : ""}</div>
+    <div class="meta" style="text-align:right">Best day: ${best}<br>All time: ${total}<br>Days practiced: ${vals.length}</div>`;
+}
+function sqEl(sq) { return document.querySelector(`.sq[data-sq="${sq}"]`); }
+function showCorrectMove(fenBefore, san, tok, done) {
+  const m = new Chess(fenBefore).move(san);
+  if (!m) { done(); return; }
+  const from = sqEl(m.from), to = sqEl(m.to);
+  if (!from || !to) { done(); return; }
+  from.classList.add("missflash");                       // two quick flashes on the right piece
+  setTimeout(() => {
+    if (tok !== S.moveToken) return;
+    from.classList.remove("missflash");
+    const img = from.querySelector("img");
+    const stage = document.querySelector(".board-stage").getBoundingClientRect();
+    const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+    const ghost = document.createElement("img");
+    ghost.src = img ? img.src : ""; ghost.className = "slider";
+    Object.assign(ghost.style, { left: (a.left - stage.left + a.width * 0.05) + "px", top: (a.top - stage.top + a.height * 0.05) + "px", width: a.width * 0.9 + "px", height: a.height * 0.9 + "px" });
+    document.querySelector(".board-stage").appendChild(ghost);
+    if (img) img.style.visibility = "hidden";
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      ghost.style.transform = `translate(${b.left - a.left}px, ${b.top - a.top}px)`;
+    }));
+    setTimeout(() => {
+      ghost.remove();
+      if (tok !== S.moveToken) return;
+      // show the position after the book move, with the move highlighted
+      S.game.move(san);                                  // board now shows the right move
+      renderBoard();
+      drawArrows([{ from: m.from, to: m.to, color: "blue" }]);
+      if (sqEl(m.to)) sqEl(m.to).classList.add("h-good");
+      done();
+    }, 650);
+  }, 900);
+}
+function showMiss(rec, ply) {
+  const box = $("verdictBox");
+  const fine = rec.loss != null && rec.loss <= 30;
+  box.innerHTML = `<h4>Not the book move</h4><div><span class="c-bad">${esc(moveNo(ply, rec.san))}</span> · the line continues <strong>${esc(moveNo(ply, rec.expected))}</strong>${fine ? " (your move is playable too, but this line goes the other way)" : ""}.</div>
+    <div class="meta" style="margin-top:6px">Restarting the line: replay from move 1 up to this move.</div>`;
+  box.hidden = false;
+}
+function startReplay(missPly) {
+  const miss = S.attemptMiss, errs = S.lineErrors, hinted = S.attemptAssisted;
+  resetGame();
+  S.attemptMiss = miss; S.lineErrors = errs; S.attemptAssisted = hinted;
+  S.replay = { missPly, revealed: false, passed: false };
+  $("verdictBox").hidden = false;
+  $("verdictBox").innerHTML = `<h4>Replay</h4><div>Play the line again from the start. Find ${esc(moveNo(missPly, lineMoves()[missPly]).replace(/[^.]+$/, "…"))} yourself; as always, the arrow appears after 3 seconds.</div>`;
+  afterPositionChange();
+}
+function showVerdict(rec) {
+  if (S.mapMode === "off" && S.mode !== "practice") { $("verdictBox").hidden = true; return; }
+  const box = $("verdictBox");
+  let html = `<h4>Your move</h4>`;
+  if (rec.cls && S.mapMode !== "off") {
+    html += `<div><span class="v c-${rec.cls}">${esc(rec.san)} ${fmt(rec.cp, rec.mate)} · ${CLASS_WORD[rec.cls]}</span></div>`;
+    if (rec.bestSan !== rec.san) html += `<div class="meta">Best was ${esc(rec.bestSan)} ${fmt(rec.bestCp, rec.bestMate)} (depth ${rec.depth}).</div>`;
+    else html += `<div class="meta">That's the engine's top choice (depth ${rec.depth}).</div>`;
+  } else if (S.mapMode !== "off") {
+    html += `<div>${esc(rec.san)}</div><div class="meta">The engine hadn't scored this position yet.</div>`;
+  }
+  if (rec.expected && rec.book) {
+    const top = rec.hinted ? `<div class="c-ok">✓ Book move, with the hint</div><div class="meta">No point this time; you'll get another go at it.</div>`
+      : rec.guided ? `<div class="c-good">✓ Book move</div>`
+      : `<div class="praise">✓ Good job! +1 point</div>` + (S.memStreak > 1 ? `<div class="meta">${S.memStreak} moves in a row from memory.</div>` : "");
+    html = html.replace(`<h4>Your move</h4>`, `<h4>Your move</h4>${top}`);
+  }
+  if (S.mapMode !== "off" && cache.get(rec.fenBefore)) html += `<div style="margin-top:8px"><button class="linkbtn" id="seeMap">See the move colors for that position</button></div>`;
+  box.innerHTML = html; box.hidden = false;
+  const b = $("seeMap"); if (b) b.onclick = () => enterPreview(S.records.indexOf(rec));
+}
+function enterPreview(i) {
+  const rec = S.records[i]; if (!rec) return;
+  S.preview = { fen: rec.fenBefore, rec };
+  S.selected = null;
+  renderBoard(); renderPanel();
+}
+function exitPreview() { if (!S.preview) return; S.preview = null; renderBoard(); renderPanel(); }
+
+function takeBack() {
+  if (S.preview) exitPreview();
+  if (!S.records.length) return;
+  S.moveToken++; S.engineThinking = false;
+  if (engines.play) engines.play.then((e) => e.stop()).catch(() => {});
+  const undoOne = () => { S.game.undo(); const r = S.records.pop(); if (S.mode === "explore") S.redo.push(r); };
+  undoOne();
+  if (S.mode !== "explore") { while (S.records.length && S.game.turn() !== S.user) undoOne(); }
+  $("verdictBox").hidden = true;
+  S.lineDone = false;
+  afterPositionChange();
+}
+function forward() {
+  if (S.mode !== "explore" || !S.redo.length) return;
+  const r = S.redo.pop(); const keep = S.redo;
+  makeMove(moveObj(r.uci), true); S.redo = keep;
+}
+
+/* ============================================================
+   Rendering
+   ============================================================ */
+const FILES = "abcdefgh";
+function alg(file, rankDisplay) { const f = S.flipped ? 7 - file : file; const r = S.flipped ? rankDisplay : 7 - rankDisplay; return FILES[f] + (r + 1); }
+function sqCenter(sq) { let f = sq.charCodeAt(0) - 97, r = +sq[1] - 1; if (S.flipped) { f = 7 - f; r = 7 - r; } return { x: f + 0.5, y: 7 - r + 0.5 }; }
+const ARROW = { blue: ["#2f7bf0", "url(#headB)"], green: ["#15781B", "url(#headG)"], grey: ["#8b93a7", "url(#headY)"] };
+function drawArrows(list) {
+  const layer = $("arrowLayer"); layer.innerHTML = "";
+  const NS = "http://www.w3.org/2000/svg";
+  const hl = list.some((a) => a.hot);
+  for (const a of list) {
+    const p = sqCenter(a.from), q = sqCenter(a.to);
+    const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
+    const [col, head] = ARROW[a.color] || ARROW.green;
+    const ln = document.createElementNS(NS, "line");
+    const x2 = q.x - dx / len * 0.4, y2 = q.y - dy / len * 0.4;
+    ln.setAttribute("x1", p.x + dx / len * 0.2); ln.setAttribute("y1", p.y + dy / len * 0.2);
+    ln.setAttribute("x2", x2); ln.setAttribute("y2", y2);
+    ln.setAttribute("stroke", col); ln.setAttribute("stroke-linecap", "round");
+    ln.setAttribute("stroke-width", a.hot ? "0.2" : "0.15");
+    ln.setAttribute("marker-end", head);
+    ln.setAttribute("opacity", hl && !a.hot ? "0.3" : "0.9");
+    layer.appendChild(ln);
+    if (a.num) {                                   // numbered badge next to the destination
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("opacity", hl && !a.hot ? "0.4" : "1");
+      const bx = q.x + 0.3, by = q.y - 0.3;
+      const c = document.createElementNS(NS, "circle");
+      c.setAttribute("cx", bx); c.setAttribute("cy", by); c.setAttribute("r", "0.17");
+      c.setAttribute("fill", col); c.setAttribute("stroke", "#fff"); c.setAttribute("stroke-width", "0.03");
+      const t = document.createElementNS(NS, "text");
+      t.setAttribute("x", bx); t.setAttribute("y", by + 0.075); t.setAttribute("text-anchor", "middle");
+      t.setAttribute("font-size", "0.22"); t.setAttribute("font-weight", "700"); t.setAttribute("fill", "#fff");
+      t.setAttribute("font-family", "system-ui, sans-serif"); t.textContent = a.num;
+      g.appendChild(c); g.appendChild(t); layer.appendChild(g);
+    }
+  }
+}
+function mapVisible() {
+  if (S.preview) return true;
+  if (inGuide()) return false;             // guided start: only the blue book arrow
+  if (S.mapMode !== "always") return false;
+  return isUserTurn() && !S.game.game_over();
+}
+let boardKey = null;
+function buildSquares(pos) {
+  const el = $("board"); el.innerHTML = "";
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const sq = alg(f, r);
+    const div = document.createElement("div");
+    div.dataset.base = "sq " + ((f + r) % 2 ? "dark" : "light");
+    div.className = div.dataset.base;
+    div.dataset.sq = sq;
+    const p = pos.get(sq);
+    if (p) {
+      const img = document.createElement("img");
+      img.alt = p.color + p.type.toUpperCase(); img.src = PIECE_BASE + p.color + p.type.toUpperCase() + ".svg"; img.draggable = false;
+      div.appendChild(img);
+    }
+    div.addEventListener("pointerdown", (e) => onPointerDown(e, sq));
+    div.addEventListener("click", () => { if (!S.dragMoved) onSquare(sq); });
+    el.appendChild(div);
+  }
+}
+function renderBoard() {
+  const fen = S.preview ? S.preview.fen : S.game.fen();
+  const pos = new Chess(fen);
+  const turn = pos.turn();
+  const el = $("board");
+  $("files").innerHTML = [...(S.flipped ? "hgfedcba" : "abcdefgh")].map((c) => `<span>${c}</span>`).join("");
+  $("ranks").innerHTML = [...(S.flipped ? "12345678" : "87654321")].map((c) => `<span>${c}</span>`).join("");
+  const showMap = mapVisible();
+  const sc = showMap ? scored(fen) : null;
+  const pieceBest = {}, dest = {};
+  if (sc) {
+    for (const m of sc.list) { const f = m.uci.slice(0, 2); if (pieceBest[f] == null || m.loss < pieceBest[f]) pieceBest[f] = m.loss; }
+    if (S.selected) for (const m of sc.list) if (m.uci.startsWith(S.selected)) { const t = m.uci.slice(2, 4); if (!dest[t] || m.cp > dest[t].cp) dest[t] = m; }
+  }
+  const legalDest = new Set();
+  if (S.selected && !sc) pos.moves({ square: S.selected, verbose: true }).forEach((m) => legalDest.add(m.to));
+  const last = S.preview ? null : S.records[S.records.length - 1];
+  // pieces are only rebuilt when the position or orientation changes; colors update in place
+  const key = fen.split(" ")[0] + "|" + S.flipped;
+  if (key !== boardKey) { buildSquares(pos); boardKey = key; }
+  for (const div of el.children) {
+    const sq = div.dataset.sq;
+    div.className = div.dataset.base;
+    const oldLbl = div.querySelector(".lbl"); if (oldLbl) oldLbl.remove();
+    const p = pos.get(sq);
+    if (last && (sq === last.from || sq === last.to)) div.classList.add("last");
+    if (sc) {
+      if (S.selected && dest[sq]) {
+        div.classList.add("h-" + dest[sq].cls);
+        const lb = document.createElement("span"); lb.className = "lbl"; lb.textContent = fmt(dest[sq].cp, dest[sq].mate); div.appendChild(lb);
+      } else if (p && p.color === turn && pieceBest[sq] != null && !(S.selected && S.selected !== sq)) {
+        div.classList.add("h-" + lossClass(pieceBest[sq]));
+      }
+    }
+    if (legalDest.has(sq)) div.classList.add("dot");
+    if (sq === S.selected) div.classList.add("sel");
+    if (sq === S.popSq) { div.classList.remove("pop"); void div.offsetWidth; div.classList.add("pop"); }
+  }
+  S.popSq = null;
+  const arrows = [];
+  if (S.preview) {
+    const rec = S.preview.rec;
+    if (rec.bestUci && rec.bestUci !== rec.uci) arrows.push({ from: rec.bestUci.slice(0, 2), to: rec.bestUci.slice(2, 4), color: "green" });
+    arrows.push({ from: rec.from, to: rec.to, color: "grey" });
+  } else {
+    S.book = bookArrows();
+    S.book.forEach((b) => arrows.push({ from: b.from, to: b.to, color: "blue", num: b.num, hot: S.hotBook === b.num && b.num > 0 }));
+  }
+  drawArrows(arrows);
+  renderBookBox();
+}
+function renderBookBox() {
+  const box = $("bookBox"), list = S.book || [];
+  // a hidden move where this line differs from its sister lines: name the line, not the move
+  if (!list.length && !S.preview && !S.missing && S.mode === "practice" && currentLine() && isUserTurn() && onBook() && bookMove()
+      && signposts(S.opening, S.lineIdx, S.user).has(S.records.length)) {
+    box.innerHTML = `<h5>Which way?</h5><div class="bk"><span class="nm">This line: <strong>${esc(lineTitle(S.opening, S.lineIdx))}</strong>. The arrow appears after 3 seconds.</span></div>`;
+    box.hidden = false; return;
+  }
+  if (!list.length || S.preview) { box.hidden = true; return; }
+  const ply = S.records.length;
+  if (S.mode === "practice") {
+    box.innerHTML = `<h5>${list[0].sign ? "Signpost" : "Book move"}</h5><div class="bk"><span class="san">${esc(moveLabel(ply, list[0].san))}</span><span class="nm">${esc(list[0].label)}</span></div>`;
+  } else {
+    box.innerHTML = `<h5>Book moves</h5>` + list.map((b) =>
+      `<div class="bk${S.hotBook === b.num ? " on" : ""}" data-n="${b.num}"><span class="num">${b.num}</span><span class="san">${esc(moveLabel(ply, b.san))}</span><span class="nm">${esc(b.label)}</span></div>`).join("");
+    box.querySelectorAll(".bk").forEach((el) => {
+      const n = +el.dataset.n;
+      el.onmouseenter = () => { S.hotBook = n; renderBoardArrowsOnly(); };
+      el.onmouseleave = () => { S.hotBook = null; renderBoardArrowsOnly(); };
+      el.onclick = () => { S.hotBook = S.hotBook === n ? null : n; renderBoardArrowsOnly(); };
+    });
+  }
+  box.hidden = false;
+}
+function renderBoardArrowsOnly() {
+  const list = S.book || [];
+  drawArrows(list.map((b) => ({ from: b.from, to: b.to, color: "blue", num: b.num, hot: S.hotBook === b.num })));
+  document.querySelectorAll("#bookBox .bk").forEach((el) => el.classList.toggle("on", +el.dataset.n === S.hotBook));
+}
+function renderPanel() {
+  const fen = S.preview ? S.preview.fen : S.game.fen();
+  const turn = fen.split(" ")[1];
+  const sc = scored(fen);
+  const e = cache.get(fen);
+  if (sc) {
+    const whiteCp = turn === "w" ? sc.best : -sc.best;
+    const bm = sc.list[0].mate; const wm = bm != null ? (turn === "w" ? bm : -bm) : null;
+    $("evalNum").textContent = fmt(whiteCp, wm);
+    $("depth").textContent = `depth ${sc.depth}${e && e.done ? "" : "…"}`;
+  } else { $("depth").textContent = isUserTurn() ? "thinking…" : ""; }
+  const tn = turn === "w" ? "White" : "Black";
+  if (S.preview) $("turnInfo").innerHTML = `Reviewing your move · <button class="linkbtn" id="backToGame">back to the game</button>`;
+  else if (S.game.game_over()) gameOverNote();
+  else $("turnInfo").textContent = S.engineThinking ? "Engine is thinking…" : isUserTurn() ? `${tn} to move${S.mode === "explore" ? "" : " (you)"}` : `${tn} to move`;
+  const bt = $("backToGame"); if (bt) bt.onclick = exitPreview;
+  $("mapHelp").hidden = !mapVisible();
+
+  // move list
+  let html = "";
+  S.records.forEach((r, i) => {
+    if (i % 2 === 0) html += `<span class="n">${i / 2 + 1}.</span>`;
+    const dot = r.byUser && r.cls && S.mapMode !== "off" ? `<i class="dotc ${r.cls}"></i>` : "";
+    html += `<span class="m${r.book ? " book" : ""}" title="${r.book ? "book move" : ""}">${esc(r.san)}${dot}</span>`;
+  });
+  $("moveList").innerHTML = html || `<span class="meta">No moves yet.</span>`;
+
+  // table of every move for the side to move
+  const show = mapVisible() && sc;
+  $("tableBox").hidden = !show;
+  if (show) {
+    $("tableSide").textContent = tn + (e && e.done ? "" : " (refining…)");
+    $("moveTable").innerHTML = sc.list.map((m) => `<tr data-u="${m.uci}"><td><i class="dotc ${m.cls}"></i> ${esc(m.san)}</td><td class="s">${fmt(m.cp, m.mate)}</td><td class="s meta">${m.loss > 0 && m.loss < MATE_CP / 2 ? "−" + (m.loss / 100).toFixed(1) : ""}</td></tr>`).join("");
+    document.querySelectorAll("#moveTable tr").forEach((tr) => {
+      tr.onclick = () => { if (!S.preview && isUserTurn() && !S.engineThinking) makeMove(moveObj(tr.dataset.u), true); };
+      tr.onmouseenter = () => { const u = tr.dataset.u; drawArrows([{ from: u.slice(0, 2), to: u.slice(2, 4), color: "green" }]); };
+      tr.onmouseleave = () => drawArrows([]);
+    });
+  }
+}
+function updateLineProgress() {
+  const el = $("lineProgress"); if (!el || !currentLine()) return;
+  const bn = $("branchNote");
+  if (bn) {
+    const reached = S.records.length > branchPly(S.opening, S.lineIdx);
+    if (reached && !bn.dataset.shown) { bn.innerHTML = branchNoteHtml(S.opening, S.lineIdx); bn.dataset.shown = "1"; }
+    if (!reached && bn.dataset.shown) { bn.innerHTML = ""; delete bn.dataset.shown; }
+  }
+  const L = lineMoves(); const n = S.records.length;
+  const f = fadeState(S.opening, S.lineIdx, S.user);
+  const fade = f.views < viewsSetting() && !f.hide ? `Viewing ${f.views + 1} of ${viewsSetting()}: arrows on every move.`
+    : f.hide >= f.total ? "Whole line from memory." : `From memory: your last ${f.hide} of ${f.total} moves.`;
+  const act = $("lineActions");
+  if (S.lineDone) {
+    el.textContent = `✓ End of the line. ${S.lineEndMsg || ""} You can keep playing against the engine.`;
+    if (act && !act.dataset.on) {
+      const f = fadeState(S.opening, S.lineIdx, S.user);
+      const lbl = (x) => x <= 0 ? "↻ Again with all arrows" : x >= f.total ? `↻ Again: all ${f.total} from memory` : `↻ Again: last ${x} from memory`;
+      const easier = f.hide > 0 ? `<button class="ghost" id="easierBtn">${lbl(f.hide - 1)}</button>` : "";
+      act.innerHTML = `<div class="actions2"><button class="primary" id="againBtn">${lbl(f.hide)}</button>${easier}</div>
+        <div class="actions2" style="margin-top:6px"><button class="ghost" id="nextBtn2">Next line ›</button></div>`;
+      act.dataset.on = "1";
+      $("againBtn").onclick = () => start();
+      if (easier) $("easierBtn").onclick = () => { setHide(f.hide - 1); start(); };
+      $("nextBtn2").onclick = nextLine;
+    }
+  } else if (act && act.dataset.on) { act.innerHTML = ""; delete act.dataset.on; }
+  if (S.lineDone) {}
+  else if (onBook()) el.textContent = n >= L.length ? `✓ End of the line. ${S.lineEndMsg || ""} Keep playing against the engine, or go to the next line.` : `Move ${n}/${L.length} · ${S.replay ? "replaying to the missed move" : fade}`;
+  else el.textContent = "Off the line: the engine is now thinking for itself.";
+}
+function renderOpeningCard() {
+  const o = S.opening;
+  const card = $("openingCard");
+  if (S.mode !== "practice" || !o) { card.hidden = true; return; }
+  card.hidden = false;
+  $("ocName").textContent = o.name + (o.group === "trick" ? " · trick opening" : "");
+  $("ocIdea").textContent = o.idea;
+}
+
+/* ============================================================
+   Input
+   ============================================================ */
+function canMove() { return !S.preview && !S.missing && isUserTurn() && !S.engineThinking && !S.game.game_over(); }
+function onPointerDown(e, sq) {
+  if (S.preview) { exitPreview(); return; }
+  if (!canMove()) return;
+  const p = S.game.get(sq);
+  if (!p || p.color !== S.game.turn()) return;
+  e.preventDefault();
+  const was = S.selected;
+  S.selected = sq; S.dragMoved = false;
+  if (was !== sq) renderBoard();
+  const cell = document.querySelector(`.sq[data-sq="${sq}"]`);
+  const img = cell && cell.querySelector("img");
+  const ghost = $("dragGhost");
+  const size = cell ? cell.getBoundingClientRect().width : 60;
+  ghost.src = img ? img.src : ""; ghost.style.width = ghost.style.height = size + "px";
+  const moveG = (ev) => {
+    if (!S.dragMoved && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) > 5) {
+      S.dragMoved = true; ghost.classList.add("show");
+      const c = document.querySelector(`.sq[data-sq="${sq}"]`); if (c) c.classList.add("dragging");
+    }
+    ghost.style.left = ev.clientX + "px"; ghost.style.top = ev.clientY + "px";
+  };
+  const up = (ev) => {
+    window.removeEventListener("pointermove", moveG); window.removeEventListener("pointerup", up);
+    ghost.classList.remove("show");
+    document.querySelectorAll(".sq.dragging").forEach((n) => n.classList.remove("dragging"));
+    if (S.dragMoved) {
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+      const t = hit && hit.closest ? hit.closest(".sq") : null;
+      if (!(t && tryMove(sq, t.dataset.sq))) renderBoard();
+      setTimeout(() => (S.dragMoved = false), 0);
+    }
+  };
+  window.addEventListener("pointermove", moveG); window.addEventListener("pointerup", up);
+}
+function onSquare(sq) {
+  if (!canMove() || !S.selected || S.selected === sq) return;
+  if (tryMove(S.selected, sq)) return;
+  const p = S.game.get(sq);
+  S.selected = p && p.color === S.game.turn() ? sq : null;
+  renderBoard();
+}
+function tryMove(from, to) {
+  const legal = S.game.moves({ square: from, verbose: true }).find((m) => m.to === to);
+  if (!legal) return false;
+  S.selected = null;
+  return makeMove({ from, to, promotion: legal.promotion ? "q" : undefined }, true);
+}
+
+/* ============================================================
+   Controls
+   ============================================================ */
+function buildOpeningSelect() {
+  const sel = $("opening"), st = loadStats();
+  const keep = S.opening ? S.opening.id : lsGet("otr1:opening");
+  const label = (o) => {
+    const x = openingInfo(o, st);
+    const bits = [`${x.sym} ${o.name} (${o.side === "w" ? "White" : "Black"})`];
+    if (x.seen) bits.push(`${x.clean}/${x.n} lines`);
+    if (mins(x.ms)) bits.push(`${mins(x.ms)} min`);
+    return bits.join(" · ");
+  };
+  const grp = (g, title) => `<optgroup label="${title}">` + LIBRARY.filter((o) => o.group === g)
+    .map((o, k) => ({ o, k, p: openingInfo(o, st).prio })).sort((a, b) => b.p - a.p || a.k - b.k)
+    .map(({ o }) => `<option value="${o.id}">${esc(label(o))}</option>`).join("") + `</optgroup>`;
+  sel.innerHTML = grp("popular", "Popular openings") + grp("english", "English Opening, by variation") + grp("trick", "Trick openings");
+  if (keep && LIBRARY.some((o) => o.id === keep)) sel.value = keep;
+  S.opening = LIBRARY.find((o) => o.id === sel.value);
+}
+function buildLineSelect() {
+  const sel = $("line"), o = S.opening; if (!o) return;
+  sel.innerHTML = sortedLines(o).map((x) => {
+    const bits = [`${x.sym} ${lineTitle(o, x.i)}`];
+    if (x.v.seen) bits.push(`${x.v.clean}/${x.v.seen} clean`);
+    if (mins(x.v.ms)) bits.push(`${mins(x.v.ms)} min`);
+    return `<option value="${x.i}">${esc(bits.join(" · "))}</option>`;
+  }).join("");
+  sel.value = String(S.lineIdx);
+}
+function setSeg(id, v) { document.querySelectorAll(`#${id} button`).forEach((b) => b.classList.toggle("on", b.dataset.v === v)); }
+function applyModeUi() {
+  $("practiceBox").hidden = S.mode !== "practice";
+  $("playBox").hidden = S.mode !== "play";
+  $("fwdBtn").hidden = S.mode !== "explore";
+  $("bookToggleRow").hidden = S.mode !== "explore";
+  $("modeHint").textContent = {
+    practice: "The engine plays the other side of a book line. Arrows guide you, then fade as you learn it; a wrong move restarts the line.",
+    play: "",
+    explore: "Move both sides yourself and see how each move scores.",
+  }[S.mode];
+  $("rating").disabled = S.mode === "explore";
+}
+document.querySelectorAll("#modeSeg button").forEach((b) => b.onclick = () => { S.mode = b.dataset.v; setSeg("modeSeg", S.mode); applyModeUi(); start(); });
+document.querySelectorAll("#mapSeg button").forEach((b) => b.onclick = () => { S.mapMode = b.dataset.v; setSeg("mapSeg", S.mapMode); lsSet("otr1:map", S.mapMode); renderBoard(); renderPanel(); });
+$("opening").onchange = () => { S.opening = LIBRARY.find((o) => o.id === $("opening").value); lsSet("otr1:opening", S.opening.id); S.lineIdx = sortedLines(S.opening)[0].i; start(); };
+$("line").onchange = () => { S.lineIdx = +$("line").value; start(); };
+function depthLabel() { const v = +$("depth").value; $("depthVal").textContent = v >= 11 ? "Max (full lines)" : `${v} moves`; }
+$("depth").oninput = depthLabel;
+$("depth").onchange = () => { lsSet("otr1:depth", $("depth").value); if (S.mode === "practice") start(); };
+$("views").onchange = () => { lsSet("otr1:views", $("views").value); updateLineProgress(); renderBoard(); };
+// re-sort only when a menu is about to open, never while you're looking at it
+["opening", "line"].forEach((id) => $(id).addEventListener("pointerdown", () => { if (id === "opening") buildOpeningSelect(); else buildLineSelect(); }));
+document.addEventListener("pointerdown", markActive, true);
+document.addEventListener("keydown", markActive, true);
+$("sidePick").onchange = start;
+$("settings").addEventListener("toggle", () => lsSet("otr1:settingsOpen", $("settings").open ? "1" : "0"));
+$("bookArrows").onchange = () => { S.bookArrows = $("bookArrows").checked; lsSet("otr1:bookArrows", S.bookArrows ? "1" : "0"); renderBoard(); };
+function nextLine() { S.lineIdx = pickNextLine(); start(); }
+$("restartBtn").onclick = start;
+$("backBtn").onclick = takeBack;
+$("fwdBtn").onclick = forward;
+$("flipBtn").onclick = () => { S.flipped = !S.flipped; renderBoard(); };
+$("rating").oninput = () => { S.rating = +$("rating").value; $("ratingVal").textContent = S.rating; lsSet("otr1:rating", S.rating); };
+/* ---- Start over: reset progress for a line, an opening, or everything ---- */
+$("resetBtn").onclick = () => { $("resetBox").hidden = !$("resetBox").hidden; $("resetAll").textContent = "Everything + scores"; delete $("resetAll").dataset.armed; };
+$("resetCancel").onclick = () => { $("resetBox").hidden = true; };
+function afterReset(msg) {
+  $("resetBox").hidden = true;
+  buildOpeningSelect(); buildLineSelect(); start();
+  $("namesStatus").textContent = msg;
+}
+$("resetLine").onclick = () => {
+  const st = loadStats(); delete st[lineKey(S.opening, S.lineIdx)]; saveStats(st);
+  afterReset(`Progress reset for ${S.opening.name}: ${lineTitle(S.opening, S.lineIdx)}.`);
+};
+$("resetOpening").onclick = () => {
+  const st = loadStats();
+  Object.keys(st).filter((k) => k.startsWith(S.opening.id + ":")).forEach((k) => delete st[k]);
+  saveStats(st);
+  afterReset(`Progress reset for all ${S.opening.name} lines.`);
+};
+$("resetAll").onclick = () => {
+  const b = $("resetAll");
+  if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Tap again to erase everything"; return; }
+  lsSet(STATS_KEY, JSON.stringify({ __v: 3 }));
+  lsSet(SCORE_KEY, "{}");
+  afterReset("All progress and scores erased. Fresh start!");
+};
+$("exportBtn").onclick = () => {
+  const data = JSON.stringify({ app: "opening-trainer", version: 1, exported: new Date().toISOString(), stats: loadStats(), scores: loadScores() }, null, 1);
+  const a = document.createElement("a");
+  a.href = "data:application/json;charset=utf-8," + encodeURIComponent(data);
+  a.download = "opening-progress.json"; document.body.appendChild(a); a.click(); a.remove();
+};
+$("importBtn").onclick = () => $("importFile").click();
+$("importFile").onchange = async () => {
+  const f = $("importFile").files[0]; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d || typeof d.stats !== "object") throw new Error("not a progress file");
+    const st = loadStats();
+    for (const [k, v] of Object.entries(d.stats)) {
+      if (k === "__seq") { st.__seq = Math.max(st.__seq || 0, v || 0); continue; }
+      if (k.startsWith("__")) continue;
+      const cur = st[k]; if (!cur || (v.last || 0) > (cur.last || 0)) st[k] = v;
+    }
+    saveStats(st);
+    if (d.scores && typeof d.scores === "object") {
+      const sc = loadScores();
+      for (const [day, v] of Object.entries(d.scores)) sc[day] = Math.max(sc[day] || 0, +v || 0);
+      lsSet(SCORE_KEY, JSON.stringify(sc));
+    }
+    renderOpeningCard(); renderScore(); $("namesStatus").textContent = "Progress imported.";
+  } catch (e) { $("namesStatus").textContent = "Couldn't import: " + e.message; }
+  $("importFile").value = "";
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowLeft") takeBack();
+  if (e.key === "ArrowRight") forward();
+  if (e.key === "Escape") exitPreview();
+});
+
+/* ============================================================
+   Boot
+   ============================================================ */
+(function boot() {
+  migrateStats();
+  const r = +lsGet("otr1:rating"); if (r >= 800 && r <= 3000) { S.rating = r; $("rating").value = r; $("ratingVal").textContent = r; }
+  if (lsGet("otr1:bookArrows") === "0") { S.bookArrows = false; $("bookArrows").checked = false; }
+  const m = lsGet("otr1:map"); if (["always", "after", "off"].includes(m)) { S.mapMode = m; setSeg("mapSeg", m); }
+  if (lsGet("otr1:settingsOpen") === "1") $("settings").open = true;
+  const dp = lsGet("otr1:depth"); if (dp && +dp >= 3 && +dp <= 11) $("depth").value = dp;
+  depthLabel();
+  const vw = lsGet("otr1:views"); if (vw && +vw >= 1 && +vw <= 5) $("views").value = vw;
+  buildOpeningSelect();
+  S.lineIdx = sortedLines(S.opening)[0].i;
+  seedNamesFromLibrary();
+  applyModeUi();
+  start();
+  getEngine("ana").then(
+    () => { $("engineStatus").textContent = "Stockfish ready" + (engineMode === "main" ? " (running on the page)" : "") + "."; analyse(S.game.fen()); },
+    (e) => { $("engineStatus").textContent = "Stockfish failed to load: " + (e.message || e); });
+  loadNames();
+})();
+</script>
+</body>
+</html>
