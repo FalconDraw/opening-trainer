@@ -16,7 +16,7 @@
     [hidden]{display:none!important}
     html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,sans-serif}
     .app{display:grid;grid-template-columns:320px minmax(0,1fr);height:100vh;height:100dvh;overflow:hidden}
-    .sidebar{background:var(--panel);border-right:1px solid var(--line);padding:18px;overflow:auto}
+    .sidebar{background:var(--panel);border-right:1px solid var(--line);padding:18px;overflow:auto;scrollbar-gutter:stable}
     .brand{display:flex;gap:12px;align-items:center;margin-bottom:16px}
     .logo{font-size:28px;width:44px;height:44px;display:grid;place-items:center;background:#2a3142;border-radius:12px}
     h1{margin:0;font-size:19px}
@@ -46,7 +46,7 @@
     .mini{display:flex;gap:8px;margin-top:8px}
     .mini button{flex:1;font-size:12px;padding:7px}
 
-    .main{container-type:size;overflow:auto;padding:14px 20px;min-width:0;min-height:0}
+    .main{container-type:size;overflow:auto;scrollbar-gutter:stable;padding:14px 20px;min-width:0;min-height:0}
     .trainer{display:grid;grid-template-columns:auto minmax(280px,380px);gap:20px;align-items:start;justify-content:center}
     .board-col{--bw:max(240px, min(100cqh - 100px, 100cqw - 420px, 760px));width:var(--bw);position:sticky;top:0}
     @container (max-width: 780px){
