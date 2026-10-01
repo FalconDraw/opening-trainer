@@ -1531,27 +1531,56 @@ const CLASS_WORD = { good: "Good", ok: "Inaccurate", bad: "Mistake", blunder: "B
 /* ============================================================
    Stockfish (worker when allowed, otherwise on the page)
    ============================================================ */
+/* Where to get Stockfish, tried in order: copies next to this page (if you put them there),
+   then two public CDNs, so one site being down or blocked doesn't stop the engine. */
+const ENGINE_FILE = "stockfish-19-lite-single";
+const ENGINE_SOURCES = [
+  ...(/^https?:/.test(location.protocol) ? [new URL(ENGINE_FILE, location.href).href.replace(/[^/]*$/, "")] : []),
+  ENGINE_JS.replace(/[^/]*$/, ""),
+  "https://unpkg.com/stockfish@19.0.0/bin/",
+];
+let engineSrc = null;                         // the base URL that worked
+const engJs = (b) => b + ENGINE_FILE + ".js", engWasm = (b) => b + ENGINE_FILE + ".wasm";
 let engineUrlPromise = null;
 function engineUrl() {
   if (!engineUrlPromise) {
-    engineUrlPromise = fetch(ENGINE_JS).then((r) => {
-      if (!r.ok) throw new Error("Could not download Stockfish (" + r.status + ")");
-      return r.text();
-    }).then((src) => URL.createObjectURL(new Blob([src], { type: "text/javascript" })) + "#" + encodeURIComponent(ENGINE_WASM));
+    engineUrlPromise = (async () => {
+      for (const base of ENGINE_SOURCES) {
+        try {
+          const r = await fetch(engJs(base), { cache: "force-cache" });
+          if (!r.ok) continue;
+          const src = await r.text();
+          if (src.length < 10000 || /^\s*</.test(src)) continue;   // an error page, not the engine
+          engineSrc = base;
+          return URL.createObjectURL(new Blob([src], { type: "text/javascript" })) + "#" + encodeURIComponent(engWasm(base));
+        } catch (e) { /* try the next source */ }
+      }
+      throw new Error("Could not download Stockfish from any source");
+    })();
     engineUrlPromise.catch(() => { engineUrlPromise = null; });
   }
   return engineUrlPromise;
 }
 let mainFactoryPromise = null;
+function loadScript(url) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = url;
+    s.onload = () => (typeof s._exports === "function" ? resolve(s._exports) : reject(new Error("Stockfish did not initialise")));
+    s.onerror = () => { s.remove(); reject(new Error("Could not download Stockfish")); };
+    document.head.appendChild(s);
+  });
+}
 function mainThreadFactory() {
   if (!mainFactoryPromise) {
-    mainFactoryPromise = new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = ENGINE_JS;
-      s.onload = () => (typeof s._exports === "function" ? resolve(s._exports) : reject(new Error("Stockfish did not initialise")));
-      s.onerror = () => reject(new Error("Could not download Stockfish"));
-      document.head.appendChild(s);
-    });
+    mainFactoryPromise = (async () => {
+      const order = engineSrc ? [engineSrc, ...ENGINE_SOURCES.filter((b) => b !== engineSrc)] : ENGINE_SOURCES;
+      let last;
+      for (const base of order) {
+        try { const f = await loadScript(engJs(base)); engineSrc = base; return f; } catch (e) { last = e; }
+      }
+      throw new Error((last && last.message) || "Could not download Stockfish") ;
+    })();
     mainFactoryPromise.catch(() => { mainFactoryPromise = null; });
   }
   return mainFactoryPromise;
@@ -1565,7 +1594,7 @@ async function makeTransport(mode) {
   const factory = await mainThreadFactory();
   // Stockfish 19 on the page: output arrives through "listener", commands go in through ccall("command")
   let out = () => {};
-  const sf = await factory({ listener: (l) => out(String(l)), locateFile: (f) => (f.indexOf(".wasm") > -1 ? ENGINE_WASM : f) });
+  const sf = await factory({ listener: (l) => out(String(l)), locateFile: (f) => (f.indexOf(".wasm") > -1 ? engWasm(engineSrc) : f) });
   return { post: (m) => sf.ccall("command", null, ["string"], [m], { async: /^go\b/.test(m) }),
     listen: (fn) => { out = fn; }, onFail: () => {} };
 }
@@ -1632,6 +1661,7 @@ async function createEngine() {
       return e;
     } catch (err) {
       if (engineMode === "worker") { engineMode = "main"; continue; }
+      engineMode = "worker";                 // a retry starts from the top again
       throw err;
     }
   }
@@ -2193,7 +2223,7 @@ async function engineReply() {
   }
   if (!uci) {
     let eng;
-    try { eng = await getEngine("play"); } catch (e) { $("engineStatus").textContent = "Engine failed: " + e.message; return; }
+    try { eng = await getEngine("play"); } catch (e) { S.engineThinking = false; engineFailed(e); renderPanel(); return; }
     await applyStrength(eng);
     if (tok !== S.moveToken) return;
     const ms = S.rating >= 2400 ? 900 : S.rating >= 1800 ? 600 : 400;
@@ -2828,11 +2858,25 @@ document.addEventListener("keydown", (e) => {
   seedNamesFromLibrary();
   applyModeUi();
   start();
-  getEngine("ana").then(
-    () => { $("engineStatus").textContent = "Stockfish ready" + (engineMode === "main" ? " (running on the page)" : "") + "."; analyse(S.game.fen()); },
-    (e) => { $("engineStatus").textContent = "Stockfish failed to load: " + (e.message || e); });
+  connectEngine();
   loadNames();
 })();
+function connectEngine() {
+  $("engineStatus").textContent = "Loading Stockfish…";
+  getEngine("ana").then(
+    () => {
+      const host = engineSrc ? new URL(engineSrc, location.href).host : "";
+      $("engineStatus").textContent = "Stockfish ready" + (engineMode === "main" ? " (running on the page)" : "") + (host && !/jsdelivr/.test(host) ? ` · from ${host}` : "") + ".";
+      analyse(S.game.fen());
+      if (!isUserTurn() && !S.engineThinking) engineReply();   // a game that stalled waiting for the engine
+    },
+    (e) => engineFailed(e));
+}
+function engineFailed(e) {
+  $("engineStatus").innerHTML = `Stockfish couldn't load (${esc(e.message || String(e))}). Book moves still work, but there are no move colors or engine replies. ` +
+    `Check your internet connection or ad/script blocker, then <button class="linkbtn" id="engineRetry">try again</button>.`;
+  $("engineRetry").onclick = connectEngine;
+}
 </script>
 </body>
 </html>
