@@ -230,7 +230,7 @@
     <p class="hint" id="engineStatus">Loading Stockfish…</p>
     <p class="hint" id="namesStatus"></p>
     <p class="hint credits">Free, no account, runs entirely in your browser; your progress stays on your device.<br>
-      Engine: <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener">Stockfish 16</a> (GPLv3) ·
+      Engine: <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener">Stockfish 19 lite</a> (GPLv3) ·
       Pieces: cburnett set by Colin M.L. Burnett ·
       Opening names: <a href="https://github.com/lichess-org/chess-openings" target="_blank" rel="noopener">lichess-org/chess-openings</a> (CC0) ·
       Move logic: <a href="https://github.com/jhlywa/chess.js" target="_blank" rel="noopener">chess.js</a>.<br>
@@ -576,7 +576,7 @@ const LIBRARY = [
     lines: [
       ["The sacrifice", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5 Nxf7 Kxf7 Qf3+ Ke6 Nc3 Nb4",
         { trap: "5...Nxd5? is the natural recapture and lets White sacrifice on f7; Black's king ends up on e6." }],
-      ["Lolli Attack", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5 d4 exd4 O-O Be7 Nxf7 Kxf7 Qf3+ Ke6",
+      ["Lolli Attack", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5 d4 Nxd4 c3 b5 Bd3 h6 Nxf7 Kxf7",
         { trap: "Opening the center first with 6.d4 makes the knight sacrifice even stronger." }],
       ["Correct defense, 5...Na5", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Na5 Bb5+ c6 dxc6 bxc6 Be2 h6 Nf3 e4 Ne5",
         { side: "b", trap: "The main line: Black gives a pawn but gains lots of time chasing White's pieces." }],
@@ -593,7 +593,7 @@ const LIBRARY = [
     lines: [
       ["Trap: queen grab", "e4 e5 Nf3 Nf6 Nxe5 Nc6 Nxc6 dxc6 d3 Bc5 Bg5 Nxe4 Bxd8 Bxf2+ Ke2 Bg4#",
         { trap: "7.Bxd8?? grabs the queen and loses to 7...Bxf2+ 8.Ke2 Bg4#." }],
-      ["Refutation, 5.e5", "e4 e5 Nf3 Nf6 Nxe5 Nc6 Nxc6 dxc6 e5 Ne4 d3 Nc5 d4 Ne6 c3 c5 d5 Nd4",
+      ["Refutation, 5.e5", "e4 e5 Nf3 Nf6 Nxe5 Nc6 Nxc6 dxc6 e5 Nd5 d4 c5 Be2 Bf5 c3 c6 O-O Be7",
         { side: "w", trap: "5.e5! gains space with tempo; White should come out a clean pawn up." }],
       ["Quiet 5.d3 and Be2", "e4 e5 Nf3 Nf6 Nxe5 Nc6 Nxc6 dxc6 d3 Bc5 Be2 h5 c3 Ng4",
         { trap: "Taking on g4 opens the h-file for Black's rook; Black's attack is dangerous in practice." }],
@@ -638,7 +638,7 @@ const LIBRARY = [
   { id: "kingsgambit", name: "King's Gambit", group: "trick", side: "w",
     idea: "The romantic 2.f4: White offers a pawn to open the f-file and control the center.",
     lines: [
-      ["Kieseritzky", "e4 e5 f4 exf4 Nf3 g5 h4 g4 Ne5 Nf6 Bc4 d5 exd5 Bd6"],
+      ["Kieseritzky", "e4 e5 f4 exf4 Nf3 g5 h4 g4 Ne5 Nf6 d4 d6 Nd3 Nxe4 Bxf4 Qe7"],
       ["Fischer Defense", "e4 e5 f4 exf4 Nf3 d6 d4 g5 h4 g4 Ng1"],
       ["Falkbeer Countergambit", "e4 e5 f4 d5 exd5 e4 d3 Nf6 dxe4 Nxe4 Nf3 Bc5"],
       ["Trap: declined with 2...Bc5", "e4 e5 f4 Bc5 Nf3 d6 fxe5 dxe5 Nxe5 Qd4",
@@ -658,7 +658,7 @@ const EXTRA = {
   italian: [
     ["Hungarian, 3...Be7", "e4 e5 Nf3 Nc6 Bc4 Be7 d4 d6 d5 Nb8 Bd3 Nf6 c4 O-O"],
     ["Semi-Italian, 3...d6", "e4 e5 Nf3 Nc6 Bc4 d6 c3 Nf6 d3 Be7 O-O O-O"],
-    ["Blackburne Shilling, 4.Nxd4", "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxd4 exd4 c3 Nf6 d3 dxc3 bxc3"],
+    ["Blackburne Shilling, 4.Nxd4", "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxd4 exd4 c3 Nf6 d3 d5 exd5 Nxd5 O-O c6 cxd4"],
     ["Trap: Blackburne Shilling", "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5 Qg5 Nxf7 Qxg2 Rf1 Qxe4+ Be2 Nf3#",
       { side: "b", trap: "3...Nd4 invites 4.Nxe5?, grabbing a pawn; after 4...Qg5 White's greed ends in a smothered-style mate." }],
   ],
@@ -677,7 +677,7 @@ const EXTRA = {
   ],
   scotchgambit: [
     ["4...d6 5.O-O", "e4 e5 Nf3 Nc6 d4 exd4 Bc4 d6 O-O Be7 Nxd4 Nf6 Nc3 O-O"],
-    ["4...Be7 5.c3", "e4 e5 Nf3 Nc6 d4 exd4 Bc4 Be7 c3 dxc3 Nxc3 d6 Qb3 Na5"],
+    ["4...Be7 5.c3", "e4 e5 Nf3 Nc6 d4 exd4 Bc4 Be7 c3 Na5 Be2 dxc3 Nxc3 d6 h3"],
   ],
   vienna: [
     ["2...Bc5", "e4 e5 Nc3 Bc5 Nf3 d6 d4 exd4 Nxd4 Nf6 Be2 O-O O-O"],
@@ -692,7 +692,7 @@ const EXTRA = {
     ["Moscow, 3.Bb5+", "e4 c5 Nf3 d6 Bb5+ Bd7 Bxd7+ Qxd7 O-O Nc6 c3 Nf6 d4"],
   ],
   dragon: [
-    ["Levenfish, 6.f4", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 f4 Nbd7 Nf3 Bg7 e5 Ng4"],
+    ["Levenfish, 6.f4", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 f4 Nbd7 Qe2 e5 Nb3 Be7 Bd2 a6"],
     ["6.Bc4", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Bc4 Bg7 h3 O-O Bb3 Nc6"],
     ["Fianchetto, 6.g3", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 g3 Nc6 Nde2 Bg7 Bg2 O-O O-O"],
     ["3.Bb5+ Nd7", "e4 c5 Nf3 d6 Bb5+ Nd7 d4 Nf6 Nc3 cxd4 Qxd4 e5 Qd3 h6"],
@@ -709,16 +709,16 @@ const EXTRA = {
     ["Classical, 4.Bg5", "e4 e6 d4 d5 Nc3 Nf6 Bg5 Be7 e5 Nfd7 Bxe7 Qxe7 f4 O-O Nf3 c5"],
   ],
   caro: [
-    ["Fantasy, 3.f3", "e4 c6 d4 d5 f3 e6 Nc3 Bb4 Bd2 dxe4 fxe4 c5"],
+    ["Fantasy, 3.f3", "e4 c6 d4 d5 f3 e6 Nc3 Bb4 Bd2 dxe4 Nxe4 a5 c3 Be7 Nh3 Nf6"],
     ["Exchange, 4.Bd3", "e4 c6 d4 d5 exd5 cxd5 Bd3 Nc6 c3 Nf6 Bf4 Bg4 Qb3"],
     ["Advance, 4.Nc3", "e4 c6 d4 d5 e5 Bf5 Nc3 e6 g4 Bg6 Nge2 c5 h4 h5"],
     ["2.c4", "e4 c6 c4 d5 exd5 cxd5 cxd5 Nf6 Nc3 Nxd5 Nf3 Nc6 Bb5"],
   ],
   scandi: [
-    ["3.d4", "e4 d5 exd5 Qxd5 d4 Nf6 Nf3 Bg4 Be2 e6 O-O Nc6 c4 Qa5"],
+    ["3.d4", "e4 d5 exd5 Qxd5 d4 Nf6 Nf3 Bg4 Be2 e6 O-O Nc6 c4 Qd7 Be3 Bxf3 Bxf3 Rd8 Nc3"],
     ["3.Nf3", "e4 d5 exd5 Qxd5 Nf3 Bg4 Be2 Nc6 d4 O-O-O c3 e5"],
     ["2.Nc3", "e4 d5 Nc3 d4 Nce2 e5 Ng3 Be6 c3 c5"],
-    ["2.e5", "e4 d5 e5 c5 Nf3 Nc6 d4 Bg4 Be2 e6 O-O Nge7 c3"],
+    ["2.e5", "e4 d5 e5 c5 Nf3 Nc6 Bb5 Bg4 Bxc6+ bxc6 d3 e6 Nbd2"],
   ],
   modernscandi: [
     ["3.Bb5+", "e4 d5 exd5 Nf6 Bb5+ Bd7 Bc4 Bg4 f3 Bf5 Nc3 Nbd7"],
@@ -746,7 +746,7 @@ const EXTRA = {
   ],
   qga: [
     ["3.e3 e5", "d4 d5 c4 dxc4 e3 e5 Bxc4 exd4 exd4 Nf6 Nf3 Be7 O-O O-O"],
-    ["3.Nc3", "d4 d5 c4 dxc4 Nc3 e5 d5 Nf6 e4 Bc5 Bxc4 O-O"],
+    ["3.Nc3", "d4 d5 c4 dxc4 Nc3 e5 e3 exd4 exd4 Nf6 Bxc4 Bd6"],
     ["4.Qa4+", "d4 d5 c4 dxc4 Nf3 Nf6 Qa4+ c6 Qxc4 Bf5 Nc3 e6 g3"],
   ],
   slav: [
@@ -756,7 +756,7 @@ const EXTRA = {
   ],
   semislav: [
     ["Exchange, 5.cxd5", "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 cxd5 exd5 Bg5 Be7 e3 Bf5"],
-    ["5.g3", "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 g3 dxc4 Bg2 b5 Ne5 Bb7"],
+    ["5.g3", "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 g3 dxc4 Bg2 b5 Ne5 a6 O-O Bb7 b3 cxb3 Qxb3"],
     ["5.Qb3", "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 Qb3 dxc4 Qxc4 b5 Qd3 Bb7"],
   ],
   kid: [
@@ -780,7 +780,7 @@ const EXTRA = {
     ["3.Nf3 Bg7 4.g3", "d4 Nf6 c4 g6 Nf3 Bg7 g3 d5 cxd5 Nxd5 Bg2 O-O O-O Nb6"],
   ],
   dutch: [
-    ["2.Bg5", "d4 f5 Bg5 g6 Nd2 Bg7 c3 Nf6 e3 d6"],
+    ["2.Bg5", "d4 f5 Bg5 g6 Nd2 Bg7 c3 h6 Bf4 Nf6 Be5 O-O Bxf6"],
     ["2.Nc3", "d4 f5 Nc3 Nf6 Bg5 d5 Bxf6 exf6 e3 c6"],
     ["2.c4 Nf6 3.Nc3", "d4 f5 c4 Nf6 Nc3 g6 Nf3 Bg7 e3 O-O Be2 d6 O-O"],
   ],
@@ -793,7 +793,7 @@ const EXTRA = {
     ["3.Nf3", "d4 Nf6 c4 c5 Nf3 cxd4 Nxd4 e5 Nb5 d5 cxd5 Bc5"],
   ],
   london: [
-    ["vs ...c5 and ...Qb6", "d4 Nf6 Bf4 c5 e3 Qb6 Nc3 Qxb2 Nb5 Na6 a3"],
+    ["vs ...c5 and ...Qb6", "d4 Nf6 Bf4 c5 e3 Qb6 Nc3 Qxb2 Nb5 Nd5 Rb1 Qxa2 Ra1 Qb2 Nf3"],
     ["vs Queen's Indian setup", "d4 Nf6 Bf4 e6 e3 b6 Nf3 Bb7 h3 Be7 Bd3 O-O O-O c5 c3"],
     ["vs Dutch", "d4 f5 Bf4 Nf6 e3 e6 Nf3 b6 Bd3 Bb7 Nbd2 Be7 h3"],
     ["vs ...Bf5", "d4 d5 Bf4 Nf6 e3 Bf5 c4 e6 Nc3 Bb4 Qb3 Nc6"],
@@ -817,7 +817,7 @@ const EXTRA = {
   ],
   "eng-sym": [
     ["5...e5", "c4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 Nf3 e5 O-O Nge7 d3 O-O a3 d6 Rb1"],
-    ["5...d6", "c4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 Nf3 d6 O-O Nh6 d4 cxd4 Nxd4 O-O"],
+    ["5...d6", "c4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 Nf3 d6 O-O Nh6 d4 cxd4 Nxd4 Nxd4 Bxh6 Nxe2+ Qxe2 Bxh6 Rfe1"],
   ],
   "eng-hedgehog": [
     ["6...a6", "c4 c5 Nf3 Nf6 Nc3 e6 g3 b6 Bg2 Bb7 O-O a6 d4 cxd4 Qxd4 d6 Rd1"],
@@ -828,7 +828,7 @@ const EXTRA = {
     ["3...d5", "c4 Nf6 Nc3 g6 g3 d5 cxd5 Nxd5 Bg2 Nb6 Nf3 Nc6 O-O Bg7 d3 O-O"],
   ],
   "eng-e6": [
-    ["Mikenas, 3...Bb4", "c4 Nf6 Nc3 e6 e4 Bb4 e5 Ng8 Nf3 Nc6 d4 d6"],
+    ["Mikenas, 3...Bb4", "c4 Nf6 Nc3 e6 e4 Bb4 e5 Ng8 Qg4 Kf8 d4 c5 a3 Ba5"],
   ],
   reti: [
     ["vs King's Indian setup", "Nf3 Nf6 c4 g6 g3 Bg7 Bg2 O-O O-O d6 Nc3 e5 d3"],
@@ -841,14 +841,14 @@ const EXTRA = {
     ["Charlick, 2...d6", "d4 e5 dxe5 d6 exd6 Bxd6 Nf3 Nf6 Bg5 O-O e3"],
   ],
   friedliver: [
-    ["Ulvestad, 5...b5", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 b5 Bf1 h6 Nxf7 Kxf7 dxc6"],
+    ["Ulvestad, 5...b5", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 b5 Bf1 Qxd5 Nc3 Qc5 Bxb5 Be7 d3"],
     ["Fritz, 5...Nd4", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nd4 c3 b5 Bf1 Nxd5 cxd4 Qxg5"],
   ],
   traxler: [
-    ["5.d4", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 Bc5 d4 d5 exd5 Nxd5 Nxf7 Bxd4"],
+    ["5.d4", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 Bc5 d4 d5 Bxd5 Nxd4 Bxf7+ Ke7 Bc4 b5"],
   ],
   budapest: [
-    ["Fajarowicz, 3...Ne4", "d4 Nf6 c4 e5 dxe5 Ne4 Nf3 Nc6 a3 d6 exd6 Bxd6"],
+    ["Fajarowicz, 3...Ne4", "d4 Nf6 c4 e5 dxe5 Ne4 Nf3 Nc6 a3 d6 Qc2 Nc5 b4 Nd7 exd6 Bxd6"],
   ],
   albin: [
     ["5.a3", "d4 d5 c4 e5 dxe5 d4 Nf3 Nc6 a3 Be6 Nbd2 Qd7 g3 Nge7"],
@@ -862,7 +862,7 @@ const MORE = [
     idea: "2.Bc4 aims at f7 right away and keeps the option of f4 or d3 setups.",
     lines: [
       ["2...Nf6 3.d3", "e4 e5 Bc4 Nf6 d3 c6 Nf3 d5 Bb3 Bd6 Nc3"],
-      ["2...Bc5", "e4 e5 Bc4 Bc5 c3 Nf6 d4 exd4 e5 d5 exf6 dxc4 Qh5 O-O"],
+      ["2...Bc5", "e4 e5 Bc4 Bc5 c3 Nf6 d4 exd4 e5 d5 Bb3 Ne4 cxd4 Bb4+ Kf1 f6"],
       ["2...Nc6", "e4 e5 Bc4 Nc6 Nc3 Nf6 d3 Bb4 Nf3 d5 exd5 Nxd5 O-O"],
       ["2...c6", "e4 e5 Bc4 c6 Nf3 d5 exd5 cxd5 Bb5+ Bd7 Bxd7+ Nxd7 d4"],
     ] },
@@ -870,7 +870,7 @@ const MORE = [
     idea: "White takes back on d4 with the queen and usually castles queenside for a quick attack.",
     lines: [
       ["4...Nf6", "e4 e5 d4 exd4 Qxd4 Nc6 Qe3 Nf6 Nc3 Bb4 Bd2 O-O O-O-O Re8"],
-      ["4...g6", "e4 e5 d4 exd4 Qxd4 Nc6 Qe3 g6 Bd2 Bg7 Nc3 Nge7 O-O-O O-O"],
+      ["4...g6", "e4 e5 d4 exd4 Qxd4 Nc6 Qe3 g6 Bd2 Bg7 Nc3 Nf6 e5 Ng4 Qg3 d6 exd6"],
       ["2...Nc6 declined", "e4 e5 d4 Nc6 d5 Nce7 c4 Ng6 Be3 Bb4+ Nd2"],
     ] },
   { id: "danish", name: "Danish Gambit", side: "w", trick: true,
@@ -892,7 +892,7 @@ const MORE = [
     idea: "2...f5 is a reckless counter-gambit: dubious, but full of traps for the unprepared.",
     lines: [
       ["3.Nxe5 Qf6", "e4 e5 Nf3 f5 Nxe5 Qf6 d4 d6 Nc4 fxe4 Nc3 Qg6"],
-      ["3.exf5 e4", "e4 e5 Nf3 f5 exf5 e4 Ne5 Nf6 d3 Qe7 d4"],
+      ["3.exf5 e4", "e4 e5 Nf3 f5 exf5 e4 Ne5 Nf6 Be2 Be7 d3 Nc6 Nxc6 dxc6"],
       ["3.Bc4", "e4 e5 Nf3 f5 Bc4 fxe4 Nxe5 d5 Qh5+ g6 Nxg6 Nf6 Qe5+ Be7"],
     ] },
   { id: "philidor", name: "Philidor Defense", side: "b",
@@ -907,7 +907,7 @@ const MORE = [
   { id: "ponziani", name: "Ponziani Opening", side: "w",
     idea: "3.c3 prepares d4 to build a big pawn center, at the cost of the c3 square for the knight.",
     lines: [
-      ["3...Nf6 4.d4 Nxe4", "e4 e5 Nf3 Nc6 c3 Nf6 d4 Nxe4 d5 Ne7 Nxe5 Ng6 Qd4"],
+      ["3...Nf6 4.d4 Nxe4", "e4 e5 Nf3 Nc6 c3 Nf6 d4 Nxe4 d5 Bc5 dxc6 Bxf2+ Ke2 Bb6 Qd5"],
       ["3...Nf6 4.d4 exd4", "e4 e5 Nf3 Nc6 c3 Nf6 d4 exd4 e5 Nd5 Bb5 a6 Ba4 Nb6"],
       ["3...d5", "e4 e5 Nf3 Nc6 c3 d5 Qa4 f6 Bb5 Ne7 exd5 Qxd5 d4"],
       ["3...Bc5", "e4 e5 Nf3 Nc6 c3 Bc5 d4 exd4 cxd4 Bb4+ Bd2 Bxd2+ Nbxd2 d5"],
@@ -935,7 +935,7 @@ const MORE = [
     lines: [
       ["2.d4 d5 3.e5", "e4 Nc6 d4 d5 e5 Bf5 Nf3 e6 Be2 Nge7 O-O h6"],
       ["2.d4 d5 3.Nc3", "e4 Nc6 d4 d5 Nc3 dxe4 d5 Ne5 Qd4 Ng6 Qxe4 Nf6"],
-      ["2.Nf3 d6", "e4 Nc6 Nf3 d6 d4 Nf6 Nc3 Bg4 Be3 e6 h3 Bh5"],
+      ["2.Nf3 d6", "e4 Nc6 Nf3 d6 d4 Nf6 Nc3 Bg4 Be3 e6 h3 Bxf3 Qxf3 d5 O-O-O Nxe4 Nxe4"],
     ] },
   { id: "modern", name: "Modern Defense (Robatsch)", side: "b",
     idea: "Black fianchettoes first and keeps every option open, striking at the center later.",
@@ -993,7 +993,7 @@ const MORE = [
     lines: [
       ["vs ...e6 and ...c5", "d4 d5 Nf3 Nf6 e3 e6 Bd3 c5 c3 Nc6 Nbd2 Bd6 O-O O-O dxc5 Bxc5 e4"],
       ["vs ...Bf5", "d4 d5 Nf3 Nf6 e3 Bf5 Bd3 e6 Bxf5 exf5 Qd3 Qc8 c4"],
-      ["vs ...Bg4", "d4 d5 Nf3 Nf6 e3 Bg4 c4 e6 Nc3 Nbd7 h3 Bh5 cxd5 exd5 Be2"],
+      ["vs ...Bg4", "d4 d5 Nf3 Nf6 e3 Bg4 c4 e6 Nc3 Nbd7 h3 Bh5 cxd5 exd5 Qb3 Nb6 Ne5 Bd6 Bd2 c6"],
       ["vs King's Indian setup", "d4 Nf6 Nf3 g6 e3 Bg7 Bd3 d6 O-O O-O c4 Nbd7 Nc3 e5"],
     ] },
   // ---------- Indian defenses ----------
@@ -1017,7 +1017,7 @@ const MORE = [
     lines: [
       ["Accepted, fianchetto", "d4 Nf6 c4 c5 d5 b5 cxb5 a6 bxa6 g6 Nc3 Bxa6 e4 Bxf1 Kxf1 d6 Nf3 Bg7 g3 O-O Kg2"],
       ["5.b6", "d4 Nf6 c4 c5 d5 b5 cxb5 a6 b6 d6 Nc3 Nbd7 e4 g6 Nf3 Bg7"],
-      ["Declined, 4.Nf3", "d4 Nf6 c4 c5 d5 b5 Nf3 b4 a3 g6 Nbd2 d6 e4 Bg7"],
+      ["Declined, 4.Nf3", "d4 Nf6 c4 c5 d5 b5 Nf3 b4 a3 g6 Nbd2 Bg7 e4 d6 Bd3 a5 O-O"],
     ] },
   { id: "bogo", name: "Bogo-Indian Defense", side: "b",
     idea: "3...Bb4+ trades off or disrupts White's development without allowing the Nimzo's Nc3.",
@@ -1046,7 +1046,7 @@ const MORE = [
     lines: [
       ["vs ...e5", "b3 e5 Bb2 Nc6 e3 d5 Bb5 Bd6 f4 Qh4+ g3 Qe7 Nf3"],
       ["vs ...d5", "b3 d5 Bb2 Nf6 e3 Bf5 Nf3 e6 Be2 h6 O-O Nbd7 c4"],
-      ["vs ...Nf6 and ...g6", "b3 Nf6 Bb2 g6 e4 d6 d4 Bg7 Nd2 O-O Ngf3 c5"],
+      ["vs ...Nf6 and ...g6", "b3 Nf6 Bb2 g6 e4 d6 Nc3 Bg7 d4 O-O Qd2 c5"],
     ] },
 ];
 
@@ -1105,8 +1105,9 @@ const NOTES = {
    Config
    ============================================================ */
 const PIECE_BASE = "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/";
-const ENGINE_JS = "https://cdn.jsdelivr.net/npm/stockfish@16.0.0/src/stockfish-nnue-16-single.js";
-const ENGINE_WASM = "https://cdn.jsdelivr.net/npm/stockfish@16.0.0/src/stockfish-nnue-16-single.wasm";
+// Stockfish 19 "lite": small neural network built in (1.8 MB), far stronger than classical eval
+const ENGINE_JS = "https://cdn.jsdelivr.net/npm/stockfish@19.0.0/bin/stockfish-19-lite-single.js";
+const ENGINE_WASM = "https://cdn.jsdelivr.net/npm/stockfish@19.0.0/bin/stockfish-19-lite-single.wasm";
 const NAMES_BASE = "https://cdn.jsdelivr.net/gh/lichess-org/chess-openings@master/";
 const TARGET_DEPTH = 16;       // heatmap search depth
 const MAX_MS = 12000;          // …or at most this long per position
@@ -1167,9 +1168,11 @@ async function makeTransport(mode) {
       onFail: (fn) => { w.onerror = (e) => fn(e.message || "worker error"); } };
   }
   const factory = await mainThreadFactory();
-  const sf = await factory({ locateFile: (f) => (f.indexOf(".wasm") > -1 ? ENGINE_WASM : f) });
-  return { post: (m) => (sf.__IS_SINGLE_THREADED__ ? sf.onCustomMessage(m) : sf.postMessage(m, true)),
-    listen: (fn) => sf.addMessageListener((l) => fn(String(l))), onFail: () => {} };
+  // Stockfish 19 on the page: output arrives through "listener", commands go in through ccall("command")
+  let out = () => {};
+  const sf = await factory({ listener: (l) => out(String(l)), locateFile: (f) => (f.indexOf(".wasm") > -1 ? ENGINE_WASM : f) });
+  return { post: (m) => sf.ccall("command", null, ["string"], [m], { async: /^go\b/.test(m) }),
+    listen: (fn) => { out = fn; }, onFail: () => {} };
 }
 class Engine {
   constructor(t) {
