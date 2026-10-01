@@ -23,6 +23,10 @@
     .sub{margin:2px 0 0;color:var(--muted);font-size:12px}
     .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
     .card h2{margin:0 0 6px;font-size:14px}
+    .ochead{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}
+    .ochead h2{flex:1;min-width:0}
+    .flagbtn{padding:4px 9px;font-size:12px;white-space:nowrap;flex:none}
+    .flagbtn.on{background:#5a3b12;color:#ffcf7a}
     label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
     label:first-child{margin-top:0}
     select,input[type=text]{width:100%;background:#161922;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px}
@@ -88,7 +92,7 @@
     .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.45}
     .box h4{margin:0 0 6px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
     .evalrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-    .evalnum{font:700 20px ui-monospace,Menlo,monospace}
+    .evalnum{font:700 18px ui-monospace,Menlo,monospace}
     .meta{font-size:12px;color:var(--muted)}
     .verdict .v{font-weight:650}
     .c-good{color:var(--h-good)} .c-ok{color:var(--h-ok)} .c-bad{color:var(--h-bad)} .c-blunder{color:var(--h-blunder)}
@@ -107,6 +111,13 @@
     .scroll{max-height:260px;overflow:auto}
     .note{border-left:3px solid var(--accent);padding-left:10px}
     .credits{margin-top:16px;font-size:11px;opacity:.8}
+    details.about{margin-top:10px}
+    details.about summary{cursor:pointer;font-size:12px;color:var(--accent);font-weight:650;list-style:none}
+    details.about summary::-webkit-details-marker{display:none}
+    details.about summary::after{content:" ▸"}
+    details.about[open] summary::after{content:" ▾"}
+    #ocMoreBody p{margin:8px 0 0;font-size:13px;line-height:1.45;color:var(--ink)}
+    #ocMoreBody b{color:var(--accent);font-weight:650}
     .credits a{color:var(--muted)}
     details.settings summary{cursor:pointer;font-weight:650;font-size:14px;list-style:none}
     details.settings summary::-webkit-details-marker{display:none}
@@ -173,19 +184,23 @@
           <option value="w">White</option>
           <option value="b">Black</option>
         </select>
-        <p class="hint">☆ new · ◐ learning · ★ from memory. Least-studied first.</p>
+        <p class="hint">☆ new · ◐ learning · ★ from memory. Least-studied first. ⚑ Priority openings (flag them on the card below) sit at the top.</p>
       </div>
 
       <div id="playBox">
-        <p class="hint">You play <strong>Black</strong>. The engine picks a White opening from the library, the page names it as it appears, and your book replies show as numbered blue arrows.</p>
+        <p class="hint">You play <strong>Black</strong>. The engine picks a White opening from the library, the page names it as it appears, and your book replies show as numbered blue arrows. ⚑ Priority openings come up more often. Liked that one? <strong>↻ Same opening</strong> under the board plays it again.</p>
       </div>
       <label class="check" id="bookToggleRow"><input type="checkbox" id="bookArrows" checked /> Show book moves as blue arrows</label>
 
     </section>
 
     <section class="card" id="openingCard">
-      <h2 id="ocName"></h2>
+      <div class="ochead"><h2 id="ocName"></h2><button class="ghost flagbtn" id="flagBtn" title="Priority openings get their own group at the top of the menu and come up more often in Play engine">⚑ Priority</button></div>
       <p class="hint" id="ocIdea" style="margin:0"></p>
+      <details id="ocMore" class="about" open>
+        <summary>About this opening</summary>
+        <div id="ocMoreBody"></div>
+      </details>
     </section>
 
     <details class="card settings" id="settings">
@@ -261,6 +276,7 @@
           <button class="ghost" id="fwdBtn" title="Forward (explore)">▶</button>
           <button class="ghost" id="flipBtn">Flip</button>
           <button class="ghost" id="restartBtn" title="Restart the line / new game">↻ Restart</button>
+          <button class="ghost" id="sameBtn" hidden title="Play this opening again from the start">↻ Same opening</button>
           <div class="legend">
             <span><i style="background:var(--h-good)"></i>good</span>
             <span><i style="background:var(--h-ok)"></i>inaccurate</span>
@@ -276,7 +292,7 @@
         <div class="bookbox" id="bookBox" hidden></div>
         <div class="box">
           <div class="evalrow"><h4 style="margin:0">Evaluation</h4><span class="meta" id="depth"></span></div>
-          <div class="evalrow"><span class="evalnum" id="evalNum">0.0</span><span class="meta" id="turnInfo"></span></div>
+          <div class="evalrow"><span class="evalnum" id="evalNum">Equal</span><span class="meta" id="turnInfo"></span></div>
           <p class="meta" id="mapHelp" style="margin:6px 0 0">Colored pieces show how good each piece's best move is. Tap a piece to see where it can go and the score of each move (for the side to move).</p>
         </div>
         <div class="box verdict" id="verdictBox" hidden></div>
@@ -602,7 +618,7 @@ const LIBRARY = [
     idea: "1...e5 against 1.d4 is objectively dubious but full of traps.",
     lines: [
       ["Trap: Qc1#", "d4 e5 dxe5 Nc6 Nf3 Qe7 Bf4 Qb4+ Bd2 Qxb2 Bc3 Bb4 Qd2 Bxc3 Qxc3 Qc1#",
-        { trap: "8.Bc3?? (attacking the queen) loses to 8...Bb4! and mate on c1." }],
+        { trap: "6.Bc3?? (attacking the queen) loses to 6...Bb4! and mate on c1." }],
       ["Refutation, 4.Qd5", "d4 e5 dxe5 Nc6 Nf3 Qe7 Qd5 f6 exf6 Nxf6 Qb3",
         { side: "w", trap: "4.Qd5 defends everything and White stays a pawn up." }],
     ] },
@@ -1098,6 +1114,375 @@ const NOTES = {
   ],
 };
 
+// Commentary for every opening: White's plan, Black's plan, and what to watch out for.
+const COMMENTARY = {
+  // ---------------- 1.e4 e5 ----------------
+  italian: {
+    white: "Build slowly with c3, d3, O-O, Re1 and often a4 and Nbd2-f1-g3, keeping the d4 push in reserve. The c4 bishop eyes f7 for the whole game.",
+    black: "Mirror White's setup with ...d6, ...O-O and ...a6, tuck the bishop back to a7 and look for ...d5 when it is safe.",
+    watch: "Early tactics on f7 and f2: don't let a knight land on g5 when f7 is weak, and calculate before any bishop sacrifice on f7 or f2.",
+  },
+  ruy: {
+    white: "Pressure the e5 pawn indirectly, keep the bishop (Ba4-b3), play c3 and d4, and slowly reroute a knight via d2-f1-g3. White's edge is long-term space.",
+    black: "Hold e5 with ...d6 and ...Be7, gain queenside space with ...a6 and ...b5, and prepare ...c5 or ...d5 to free the position.",
+    watch: "Don't take on e5 too early: in the main lines Nxe5 often drops a pawn back to ...Qd4 or ...Re8 tricks. Know whether you are in the Berlin (queens off) or the Closed (long maneuvering) game.",
+  },
+  scotch: {
+    white: "Open the center at once with d4, develop fast, and use the e5 push or Nxc6 to give Black weak queenside pawns.",
+    black: "Develop with tempo against the d4 knight (...Nf6 or ...Bc5) and use the open lines for active pieces; doubled c-pawns are fine if your pieces are active.",
+    watch: "In the Mieses lines the queen on e7 blocks Black's bishop, so finish development before chasing pawns. In the Steinitz (4...Qh4) Black grabs the e4 pawn at the cost of development, and White gets a lead and attacking chances.",
+  },
+  scotchgambit: {
+    white: "Give the d4 pawn for fast development: Bc4, O-O and an early e5 to chase the f6 knight, aiming at f7 and the e-file.",
+    black: "Return material when needed and develop; ...d5 at the right moment breaks White's initiative.",
+    watch: "4...Nf6 5.e5 d5! is the key counter; passive defense (...Ng8) lets White's attack roll.",
+  },
+  vienna: {
+    white: "Nc3 first keeps f4 available: the Vienna Gambit (f4) opens the f-file, while the quieter g3/Bg2 setup is a reversed closed game.",
+    black: "Strike in the center with ...d5 against f4, or develop with ...Nc6 and ...Bc5 and meet f4 with central play.",
+    watch: "In the Frankenstein-Dracula, the rook grab Nxa8 leaves the knight trapped in the corner; both sides must know the wild follow-up.",
+  },
+  bishops: {
+    white: "2.Bc4 keeps the f-pawn free and can transpose to the Vienna, Italian or King's Gambit ideas; the bishop aims at f7 throughout.",
+    black: "...Nf6 hits e4 at once; with ...c6 and ...d5 Black grabs the center with tempo.",
+    watch: "Don't let White play f4 with an open f-file against your uncastled king; castle early.",
+  },
+  centergame: {
+    white: "Recapture on d4 with the queen, play Qe3, Bd2, Nc3 and castle queenside, then push the kingside pawns.",
+    black: "Develop with tempo against the queen (...Nc6, ...Nf6, ...Bb4) and castle quickly; the e-file is the key.",
+    watch: "White's queen comes out early: every Black developing move that hits it gains time. Don't let White castle long without opening lines against that king.",
+  },
+  danish: {
+    white: "Sacrifice two pawns for two bishops aimed at f7 and g7; play for a quick attack before Black develops.",
+    black: "The best answer is to give material back with ...d5 (Schlechter's defense) and head for a calm, equal or better endgame.",
+    watch: "Greedy defenders lose fast: grabbing the pawns and not returning anything lets the bishops rake the kingside.",
+  },
+  fourknights: {
+    white: "Solid, symmetrical development. In the Spanish (4.Bb5), pin and pressure c6, castle and play d3 and Bg5.",
+    black: "Copy with ...Bb4, or try the sharp Rubinstein (4...Nd4) to take the initiative.",
+    watch: "Against the Rubinstein, taking on e5 hastily can backfire; know the main line before grabbing pawns.",
+  },
+  latvian: {
+    white: "Just develop and take the center: 3.Nxe5 is the main refutation attempt; keep calm and don't fall for the cheap queen tricks.",
+    black: "Play fast and tricky: ...Qf6, ...fxe4 and quick piece activity; it's objectively dubious, so aim for complications.",
+    watch: "White's king can come under fire on the e-file and f-file; one careless move and Black's attack plays itself.",
+  },
+  philidor: {
+    white: "Take space with d4, develop with Nc3, Bc4, O-O and Re1; Black's position is cramped but solid.",
+    black: "Hold e5 with ...d6, ...Nf6, ...Nbd7 and ...Be7 (the Hanham/Lion setup), then free yourself with ...c6 and ...b5 or ...exd4.",
+    watch: "Legal's Mate: an early ...Bg4 pin can be broken by Nxe5! with a queen sacrifice if Black's king is still exposed on f7.",
+  },
+  ponziani: {
+    white: "Prepare d4 with c3 to build a big pawn center; if Black hits e4, push d5 and use the space.",
+    black: "Counter immediately with ...Nf6 or ...d5 so the c3 move (which takes the knight's best square) looks slow.",
+    watch: "Against 3...d5, Qa4 pins the c6 knight; know the main reply (...f6 or ...Nf6) before playing it.",
+  },
+  twoknights: {
+    white: "4.Ng5 attacks f7 at once; 4.d3 keeps things quiet and steers toward an Italian-type game.",
+    black: "Against 4.Ng5, play 4...d5 and after 5.exd5 the gambit 5...Na5, getting active play for the pawn; against quiet lines, develop and castle.",
+    watch: "5...Nxd5? lets White play the Fried Liver (Nxf7!), dragging Black's king out. Learn 5...Na5 instead.",
+  },
+  friedliver: {
+    white: "After 5...Nxd5, sacrifice the knight on f7 to drag the king to e6, then bring every piece (Nc3, d4, O-O) to the attack.",
+    black: "Avoid the line with 5...Na5 (or 4...Bc5, the Traxler); if you are in it, keep the king central and return material.",
+    watch: "As White, the attack needs every tempo: don't stop to grab material while Black's king is still in the open.",
+  },
+  traxler: {
+    white: "The calm 5.Bxf7+ or 5.d4 is safer than greedy 5.Nxf7, which walks into a king hunt after 5...Bxf2+.",
+    black: "Ignore the threat on f7 and counter-sacrifice on f2; the knight and queen then hunt White's king.",
+    watch: "It's very sharp and well analyzed: both sides need to know the lines, because one wrong king move decides the game.",
+  },
+  stafford: {
+    white: "5.e5 or the quiet 5.d3 with Be2 neutralize it; don't grab material near your king.",
+    black: "Develop fast (...Bc5, ...Ng4, ...h5) and aim everything at f2 and White's king.",
+    watch: "Bxd8?? is the classic trap: Black mates with ...Bxf2+ and ...Bg4#. Respect the pins on the e1-h4 and a7-g1 diagonals.",
+  },
+  evans: {
+    white: "Give the b-pawn to gain time for c3 and d4, build a big center and attack on the kingside with active pieces.",
+    black: "Take the pawn and give some back at the right moment (...d5) to finish development; the bishop usually retreats to a5 or e7.",
+    watch: "Black's king is often stuck in the center; don't get greedy with a second pawn while White develops with tempo.",
+  },
+  kingsgambit: {
+    white: "Give the f-pawn to open the f-file and dominate the center with d4; Bc4 and O-O aim everything at f7.",
+    black: "Accept and hold the pawn with ...g5, or give it back for development (...d5); both are good if played actively.",
+    watch: "Declining with 2...Bc5 sets a trap: 3.Nf3 d6 4.fxe5?? dxe5 5.Nxe5 Qd4 hits f2 and the knight.",
+  },
+  // ---------------- 1.e4, other replies ----------------
+  najdorf: {
+    white: "Choose a plan: the English Attack (Be3, f3, Qd2, O-O-O, g4) for a pawn storm, or 6.Bg5 for the sharpest lines; quieter Be2 lines aim for slow pressure on d5.",
+    black: "...a6 keeps everything flexible: ...e5 grabs space and eyes d4, ...e6 keeps a Scheveningen structure; counterplay comes on the queenside with ...b5.",
+    watch: "Opposite-side castling races: count tempi carefully and never let the d5 square fall into White's hands for free.",
+  },
+  dragon: {
+    white: "The Yugoslav Attack: Be3, f3, Qd2, O-O-O, then h4-h5, Bh6 to trade the g7 bishop and mate on the h-file.",
+    black: "Use the long diagonal and the c-file: ...Rc8, ...Ne5-c4 and often the exchange sac ...Rxc3 to wreck White's king.",
+    watch: "Speed decides: as Black, never play slowly on the kingside; as White, don't open the h-file a move too late.",
+  },
+  accdragon: {
+    white: "The Maroczy Bind (c4) clamps d5 and gives a long-term space edge; the classical setup aims for a calmer game.",
+    black: "Delaying ...d6 keeps ...d5 in one move possible; against the bind, aim for ...a5, ...Nd7-c5 and pressure on the queenside.",
+    watch: "Against the Maroczy Bind, freeing breaks (...b5 or ...f5) need careful timing; premature breaks leave holes.",
+  },
+  sveshnikov: {
+    white: "Exploit the hole on d5: bring a knight there and trade off Black's light-squared bishop.",
+    black: "Accept the d5 hole for active play: ...e5, ...b5, the f5 break, and the bishop pair after Bxf6.",
+    watch: "Don't let White's knight settle on d5 unchallenged; the ...f5 break is Black's main source of counterplay.",
+  },
+  taimanov: {
+    white: "Set up with Be3, Qd2 and O-O-O or a quiet g3 fianchetto; aim to exploit the d6 square.",
+    black: "Keep it flexible with ...e6, ...Nc6, ...Qc7 and ...a6; develop the bishops to the best squares once White commits.",
+    watch: "After 5.Nb5, the d6 square is a target; ...d6 shuts it, but then Black must avoid a passive structure.",
+  },
+  rossolimo: {
+    white: "3.Bb5 avoids the main Open Sicilian; giving up the bishop on c6 doubles Black's pawns and gives a clear plan of d3, h3, Be3, Qd2.",
+    black: "Keep the bishop pair, play ...g6 and ...Bg7, and use the extra central pawns.",
+    watch: "If White takes on c6, Black's structure is damaged; aim for activity, not passivity.",
+  },
+  closedsic: {
+    white: "Avoid the open center with Nc3, g3, Bg2, d3, then f4 and a kingside pawn storm.",
+    black: "Mirror with ...Nc6, ...g6, ...Bg7, ...d6 and play on the queenside with ...Rb8 and ...b5.",
+    watch: "Don't let White's kingside storm arrive first; Black's ...b5-b4 plan needs to start early.",
+  },
+  alapin: {
+    white: "c3 prepares d4 so White can recapture with a pawn and keep a big center; quick development follows.",
+    black: "Hit the center at once with 2...d5 or 2...Nf6; an isolated d-pawn for White is a typical outcome.",
+    watch: "In the 2...d5 lines, Black's queen comes out early; develop with tempo against it rather than chasing pawns.",
+  },
+  morra: {
+    white: "Give a pawn for rapid development: Nc3, Nf3, Bc4, O-O, Qe2 and Rd1, aiming at d6 and f7.",
+    black: "Accept, develop carefully (...e6, ...Nge7 or ...d6/...Nf6) and return the pawn if needed to finish development.",
+    watch: "The Siberian Trap: after ...Qc7 and ...Nf6, White's h3?? allows ...Nd4!, winning the queen because of the mate threat on h2.",
+  },
+  french: {
+    white: "Gain space with e5, build a pawn chain (d4-e5), and attack on the kingside where you have space.",
+    black: "Attack the chain at its base with ...c5 and at its head with ...f6; the light-squared bishop is the problem piece.",
+    watch: "Black's c8 bishop gets locked in: plan to trade it (...b6 and ...Ba6) or free it with ...f6.",
+  },
+  caro: {
+    white: "Take space with the Advance (e5) or play the main lines; in the Classical, h4-h5 gains space against the f5 bishop.",
+    black: "Develop the light-squared bishop to f5 before ...e6, then play ...c5 or ...e5 to free the position.",
+    watch: "In the Classical, 5...Nd7 lines: after Qe2, ...Ngf6?? is the classic smothered mate (Nd6#).",
+  },
+  scandi: {
+    white: "Gain time against the early queen with Nc3, d4, Nf3 and Bc4; aim for a lead in development.",
+    black: "A simple setup with ...Qa5 or ...Qd6, ...Nf6, ...c6 and ...Bf5/...Bg4 gives a solid position.",
+    watch: "Black's queen can be harassed: don't let White build a big lead in development with tempo moves.",
+  },
+  modernscandi: {
+    white: "Keep the extra pawn with c4 or return it for development with d4 and Nf3.",
+    black: "Delay the recapture; the knight takes back on d5 or the pawn is gambited for quick development.",
+    watch: "In the Portuguese (3...Bg4) Black gets wild play but must know the lines; one slow move and White keeps a healthy extra pawn.",
+  },
+  pirc: {
+    white: "Build a big center (e4, d4, Nc3) and choose: Austrian (f4) for a direct attack or the 150 Attack (Be3, Qd2, Bh6).",
+    black: "Fianchetto, castle and hit the center with ...c5 or ...e5 once White has committed.",
+    watch: "Against the Austrian, e5 can come very quickly; Black must strike back in time.",
+  },
+  modern: {
+    white: "Take the center with e4 and d4 and develop naturally; Black's flexibility means no forced lines.",
+    black: "Fianchetto first, delay ...Nf6, and choose ...c6/...b5, ...e5 or ...c5 depending on White's setup.",
+    watch: "If Black waits too long, White's space advantage becomes suffocating.",
+  },
+  alekhine: {
+    white: "Kick the knight with pawns to build a big center, but don't overextend; the Modern 4.Nf3 is the calm choice.",
+    black: "Lure the pawns forward, then attack the center with ...d6, ...Bg4 and ...c5 or ...e6.",
+    watch: "In the Four Pawns Attack, both sides must know the theory; a single wrong move loses the center or the pawns.",
+  },
+  nimzowitsch: {
+    white: "Take the center with d4 and develop normally; Black's setup is a bit passive.",
+    black: "Develop the knight and the c8 bishop actively (...Bg4) and strike with ...d5 or ...e5.",
+    watch: "Black can transpose into other openings; know which one you want before playing it.",
+  },
+  petrov: {
+    white: "Develop and play for a small but lasting edge; in the 5.Nc3 and 5.d4 lines, keep the initiative.",
+    black: "Mirror White, trade pieces and aim for a solid, equal endgame; it is one of the most solid defenses.",
+    watch: "Don't copy blindly: 3...Nxe4? 4.Qe2! and after 4...Nf6?? 5.Nc6+ wins the queen with a discovered check.",
+  },
+  // ---------------- 1.d4 d5 and queen's pawn games ----------------
+  qgd: {
+    white: "Pressure d5 with c4, Nc3, Bg5; plan a minority attack (b4-b5) after cxd5, or play in the center with e4.",
+    black: "Hold d5 with ...e6, ...Be7 and ...Nbd7, then free yourself with ...c5 or ...e5 once development is complete.",
+    watch: "The Elephant Trap: 7.Nxd5?? Nxd5! 8.Bxd8 Bb4+ wins a piece for Black. Know the Exchange Variation's minority attack.",
+  },
+  tarrasch: {
+    white: "Play g3 and Bg2 to pressure the isolated d5 pawn; trade pieces and win the weak pawn in the endgame.",
+    black: "Accept an isolated d-pawn for free and active pieces; use the half-open files for attack.",
+    watch: "Black must keep the pieces active; in a pure endgame, the isolated pawn becomes a target.",
+  },
+  qga: {
+    white: "Win back the pawn calmly (e3 and Bxc4), then use a central majority (e4 push) for an edge.",
+    black: "Give up the center briefly, then hit back with ...c5 and ...e5; develop the c8 bishop actively.",
+    watch: "Trying to hold the extra pawn with ...b5 and ...c6 runs into a4 and Qf3, which wins material.",
+  },
+  slav: {
+    white: "Pressure d5 and Black's queenside: a4 prevents ...b5 and e3 plus Bxc4 regains the pawn.",
+    black: "Support d5 with ...c6 and develop the light-squared bishop before ...e6.",
+    watch: "In the main line, ...dxc4 and ...b5 need care: a4 at the right time breaks the queenside chain.",
+  },
+  semislav: {
+    white: "Choose between the sharp Meran (Bd3), anti-Meran (Qc2) or the Moscow (Bg5) to avoid heavy theory.",
+    black: "...c6 and ...e6 together: take on c4 when it gains time and expand with ...b5 and ...c5.",
+    watch: "The Meran lines are very sharp; a single wrong move order changes everything.",
+  },
+  chigorin: {
+    white: "Take the center with e3/e4 and develop; Black's pieces are active but the pawn structure is weaker.",
+    black: "Pressure d4 with pieces (...Nc6, ...Bg4) and trade the bishop for the f3 knight.",
+    watch: "Giving up the bishop pair means Black must keep the initiative; passivity loses.",
+  },
+  albin: {
+    white: "Return the pawn with g3, Bg2 and Nbd2, then win the d4 pawn; 4.e3? walks into the Lasker Trap.",
+    black: "The d4 pawn cramps White; aim for queenside castling and a kingside pawn storm.",
+    watch: "Lasker Trap: 4.e3? Bb4+ 5.Bd2 dxe3! 6.Bxb4?? exf2+ 7.Ke2 fxg1=N+ wins for Black.",
+  },
+  bdg: {
+    white: "Give the e-pawn for the open f-file, then attack with Bd3, O-O, Qe1-h4 and Ne5.",
+    black: "Accept and develop solidly (...e6, ...Be7 or ...Bg4); the extra pawn should be returned for safety if needed.",
+    watch: "Objectively dubious, but in fast games White's attack is dangerous if Black castles carelessly.",
+  },
+  englund: {
+    white: "Simply develop and keep the extra pawn: 4.Qd5 or calm moves like Nf3, Bf4 and Nc3.",
+    black: "Play for traps: ...Qe7, ...Qb4+ and the ...Qxb2 grab; the gambit is objectively weak.",
+    watch: "The classic trap: 6.Bc3?? Bb4! 7.Qd2 Bxc3 8.Qxc3 Qc1#.",
+  },
+  london: {
+    white: "The same setup almost always: d4, Bf4, e3, Nf3, c3, Bd3, Nbd2; play e4 or Ne5 when it works.",
+    black: "Hit the setup early: ...c5 and ...Qb6 pressures b2, or a King's Indian setup avoids White's comfort zone.",
+    watch: "Don't let Black's ...Qb6 grab b2 for free: play Qb3 or Nc3 tricks, and keep the f4 bishop safe from ...Nh5.",
+  },
+  colle: {
+    white: "A quiet triangle (c3, d4, e3) with Bd3 and Nbd2 prepares the e4 break and a kingside attack.",
+    black: "Develop the light-squared bishop before ...e6 (...Bf5 or ...Bg4) to avoid passivity.",
+    watch: "If Black plays passively, the e4 break and a bishop on the b1-h7 diagonal create a strong attack.",
+  },
+  // ---------------- Indian defenses ----------------
+  kid: {
+    white: "Take the center with e4 and d4; play on the queenside (c5, b4) while Black attacks your king.",
+    black: "Concede the center, play ...e5, close it, then storm the kingside with ...f5, ...g5 and ...f4.",
+    watch: "It's a race: count moves on both wings; the side that's slower usually loses.",
+  },
+  nimzo: {
+    white: "Accept doubled c-pawns for the bishop pair or avoid them with Qc2; use the center and the two bishops.",
+    black: "Pin with ...Bb4, fight for e4, and often take on c3 to double White's pawns.",
+    watch: "If Black gives up the bishop, the position must stay closed; open lines favor White's bishops.",
+  },
+  qid: {
+    white: "Fianchetto (g3) and fight for e4 and the long diagonal; keep a small, lasting edge.",
+    black: "Control e4 and d5 with ...b6, ...Bb7 (or ...Ba6), then break with ...c5 or ...d5.",
+    watch: "The battle for e4 is the main theme: whoever controls it gets the better game.",
+  },
+  bogo: {
+    white: "Trade bishops with Bd2, keep a slight space edge and play for e4.",
+    black: "Disrupt White with ...Bb4+, trade off the dark-squared bishops and play ...d6 and ...e5.",
+    watch: "Black's position is solid but passive; aim for ...e5 to equalize.",
+  },
+  grunfeld: {
+    white: "Build a big center (e4, d4) and support it; the Exchange Variation is the main test.",
+    black: "Invite the center, then attack it with ...c5, the g7 bishop and ...Nc6; trade pieces to weaken it.",
+    watch: "The center must be supported precisely; one loose pawn and Black's pieces tear it apart.",
+  },
+  benoni: {
+    white: "Use the central majority: e4-e5 breaks and f4 are the key ideas.",
+    black: "Use the queenside majority (...a6, ...b5) and the g7 bishop; the e5 square and the e-file are key.",
+    watch: "White's e5 push can be crushing if Black is not ready to blockade it.",
+  },
+  benko: {
+    white: "Accept the pawn and keep it: consolidate, trade pieces, and the extra pawn should tell in the endgame.",
+    black: "Give a pawn for open a- and b-files, then pressure with rooks and the g7 bishop.",
+    watch: "Black's compensation is long-term; don't trade the queens too early as Black.",
+  },
+  oldindian: {
+    white: "Space and a quiet build-up; the e4-e5 break and the center are the main plans.",
+    black: "Solid ...d6, ...e5 and ...Be7 setup; play ...c6 and ...a6 for queenside space.",
+    watch: "Black's setup can become passive if White grabs too much space.",
+  },
+  budapest: {
+    white: "Keep the extra pawn with Bf4 and Nf3, then return it at the right moment for a good position.",
+    black: "Regain the pawn on e5 with pieces and keep the initiative.",
+    watch: "The classic trap: after ...Bb4+ and ...Qe7, 8.axb4?? allows ...Nd3#.",
+  },
+  catalan: {
+    white: "Fianchetto the bishop, give up the c4 pawn if needed and regain it later; long-term pressure on the queenside.",
+    black: "Take on c4 and try to keep the pawn, or play ...Be7 and ...c6 for a solid setup.",
+    watch: "The Catalan bishop on g2 is White's best piece; Black should not open the long diagonal.",
+  },
+  torre: {
+    white: "Pin the f6 knight with Bg5, play e3 and c3, and push e4 at the right moment.",
+    black: "Play ...c5 and ...Qb6 to pressure b2, or a King's Indian setup.",
+    watch: "The Bg5 pin can be annoying: ...h6 and ...g5 kick the bishop, but weaken the kingside.",
+  },
+  trompowsky: {
+    white: "Attack the knight with 2.Bg5, often giving up the bishop to double Black's pawns.",
+    black: "Kick the bishop with ...Ne4 or ...c5, or play solidly with ...e6.",
+    watch: "Taking the bishop pair must be backed by active play; passivity favors White's structure.",
+  },
+  dutch: {
+    white: "Fianchetto and play for e4; the Staunton Gambit (2.e4) attacks Black's king directly.",
+    black: "Control e4 with ...f5 and attack the kingside; the Leningrad uses ...g6 and ...Bg7.",
+    watch: "Black's king can become exposed; castle early and don't open the e8-h5 diagonal.",
+  },
+  stonewall: {
+    white: "Target the hole on e5 with a knight and trade the dark-squared bishops.",
+    black: "Build the wall (c6, d5, e6, f5) and attack on the kingside with ...Qe8-h5 and ...Ne4.",
+    watch: "The e5 square is a permanent weakness; Black must not let a white knight settle there for free.",
+  },
+  // ---------------- Flank openings ----------------
+  "eng-revsic": {
+    white: "Keep the g2 bishop aimed down the long diagonal, castle, then play a3, b4 and Rb1 to open lines on the queenside, with d3 and Be3 in support.",
+    black: "Take the center with ...e5 and ...d5, and use the extra space; the c3 knight and long diagonal are White's main pressure.",
+    watch: "Black's knight on d5 (and later b6) is a target for White's pieces; Black must not let White gain time against it while the queenside expansion rolls.",
+  },
+  "eng-4n": {
+    white: "Choose the g3 fianchetto or the e3/Qc2 setup, then aim for d4 or Nd5.",
+    black: "Develop symmetrically; ...Bb4 or ...d5 gives active play.",
+    watch: "After ...e4 lines, White's knight can be kicked; plan the knight's retreat square in advance.",
+  },
+  "eng-closed": {
+    white: "Keep it closed: Botvinnik setup (e4) to clamp d5, or Rb1/b4 for queenside expansion.",
+    black: "Mirror and play on the kingside with ...f5 and ...f4.",
+    watch: "Plans on opposite wings: the side that's slower usually loses.",
+  },
+  "eng-sym": {
+    white: "Symmetrical play: a3 and b4 queenside expansion, or d4 to open the center.",
+    black: "Mirror and challenge the center with ...d5 or ...e5.",
+    watch: "In symmetrical positions, a single tempo makes the difference; don't waste moves.",
+  },
+  "eng-hedgehog": {
+    white: "Keep a space advantage and prevent Black's ...b5 and ...d5 breaks.",
+    black: "Stay compact on the sixth rank, then break with ...b5 or ...d5 at the right moment.",
+    watch: "White must not overextend; a well-timed Black break can turn the position.",
+  },
+  "eng-kid": {
+    white: "The Botvinnik setup (c4, e4, Nge2) clamps d5; or transpose to a Fianchetto KID with d4.",
+    black: "Play ...e5 and ...f5 for kingside play.",
+    watch: "If White gets f4 in without a reply, Black's position becomes passive.",
+  },
+  "eng-e6": {
+    white: "The sharp Mikenas-Carls (e4) or a quiet transposition to Queen's Gambit setups.",
+    black: "Strike in the center with ...d5 or ...c5.",
+    watch: "After e5, the f6 knight must move; know the follow-up before playing it.",
+  },
+  reti: {
+    white: "Attack the center from the flank: c4 and the g2 bishop, then b3 or d3/e4 depending on Black's setup.",
+    black: "Take the center with ...d5 and ...e6/...c6 and develop solidly.",
+    watch: "Don't let White's flank pressure become a positional bind on the queenside.",
+  },
+  kia: {
+    white: "Same setup against everything: Nf3, g3, Bg2, O-O, d3, Nbd2, e4, then a kingside attack with e5.",
+    black: "Take the center and expand on the queenside with ...c5, ...b5.",
+    watch: "The e5 push gives White a kingside attack; Black must counterattack on the queenside in time.",
+  },
+  bird: {
+    white: "Control e5 with f4, fianchetto the queen's bishop, and attack on the kingside.",
+    black: "Take the center with ...d5 and ...g6, or try From's Gambit (...e5) for sharp play.",
+    watch: "From's Gambit is dangerous for White if unprepared: ...Bd6 and ...g5 can be crushing.",
+  },
+  larsen: {
+    white: "Control the long diagonal with b3 and Bb2, then decide the center later.",
+    black: "Take the center with ...e5 or ...d5 and develop solidly.",
+    watch: "Black should not let the b2 bishop dominate the long diagonal; ...e5 blunts it.",
+  },
+};
+
 </script>
 <script>
 "use strict";
@@ -1129,6 +1514,16 @@ function fmt(cp, mate) {
   if (cp == null) return "…";
   if (Math.abs(cp) < 5) return "0.0";
   return (cp > 0 ? "+" : "−") + (Math.abs(cp) / 100).toFixed(1);
+}
+/* Score with the side that's better named: "White +0.5", "Black +1.2", "Equal", "Black mates in 3".
+   cp/mate are from the point of view of `pov` ("w" or "b"). */
+function sideEval(cp, mate, pov) {
+  const s = pov === "b" ? -1 : 1;
+  if (mate != null && mate !== 0) { const m = mate * s; return `${m > 0 ? "White" : "Black"} mates in ${Math.abs(m)}`; }
+  if (cp == null) return "…";
+  const w = cp * s;
+  if (Math.abs(w) < 5) return "Equal";
+  return `${w > 0 ? "White" : "Black"} +${(Math.abs(w) / 100).toFixed(1)}`;
 }
 function lossClass(loss) { return loss <= 30 ? "good" : loss <= 80 ? "ok" : loss <= 200 ? "bad" : "blunder"; }
 const CLASS_WORD = { good: "Good", ok: "Inaccurate", bad: "Mistake", blunder: "Blunder" };
@@ -1653,6 +2048,11 @@ function reportLine(clean, assisted) {
    New material first (wide and shallow), then started, then finished. Everything drifts back up
    as OTHER lines are practiced: +DRIFT priority per line practiced since you last saw it. */
 const DRIFT = 3;
+/* ---- Priority openings (⚑): their own group at the top of the menu, favored in Play engine ---- */
+const FLAG_KEY = "otr1:flags";
+function loadFlags() { try { return JSON.parse(lsGet(FLAG_KEY) || "{}"); } catch (e) { return {}; } }
+function isFlagged(o) { return !!loadFlags()[o.id]; }
+function toggleFlag(o) { const f = loadFlags(); if (f[o.id]) delete f[o.id]; else f[o.id] = true; lsSet(FLAG_KEY, JSON.stringify(f)); }
 function lineInfo(o, i, st) {
   const v = st[lineKey(o, i)] || {};
   const since = v.seq ? (st.__seq || 0) - v.seq : 0;
@@ -1705,6 +2105,8 @@ function start() {
   if (S.opening) S.lineIdx = lineRep(S.opening, S.lineIdx);
   resetGame();
   S.replay = null; S.attemptMiss = false; S.attemptAssisted = false; S.memStreak = 0;
+  S.playScript = []; S.playIds = new Set();
+  if (S.mode !== "play") S.playReplay = null;
   if (S.mode === "practice") {
     S.user = lineSide();
     const l = currentLine();
@@ -1728,6 +2130,13 @@ function isUserTurn() { return S.mode === "explore" || S.game.turn() === S.user;
 function afterPositionChange() {
   S.selected = null;
   renderName(); renderBoard(); renderPanel(); updateLineProgress();
+  const same = $("sameBtn");
+  same.hidden = !(S.mode === "play" && ((S.playScript && S.playScript.length) || S.playReplay));
+  if (!same.hidden) {
+    const ids = S.playIds && S.playIds.size ? S.playIds : S.playReplay ? S.playReplay.ids : new Set();
+    const nm = [...ids].map((id) => (LIBRARY.find((o) => o.id === id) || {}).name).filter(Boolean);
+    same.title = "Play this opening again from the start" + (nm.length ? ": " + nm.slice(0, 3).join(" / ") : "");
+  }
   if (S.game.game_over()) { gameOverNote(); return; }
   if (!isUserTurn()) engineReply();
   else {
@@ -1762,8 +2171,18 @@ async function engineReply() {
   S.engineThinking = true; renderPanel();
   let book = bookMove();
   if (!book && S.mode === "play") {          // steer into a library opening while one fits
-    const opts = [...bookNext(S.records.map((r) => r.san)).entries()].flatMap(([san, es]) => es.map(() => san));
-    if (opts.length) book = opts[Math.floor(Math.random() * opts.length)];
+    const hist = S.records.map((r) => r.san), R = S.playReplay;
+    const next = bookNext(hist);
+    // instant replay: repeat the same White moves while you repeat yours
+    if (R && hist.length < R.script.length && hist.every((s, k) => s === R.script[k]) && next.has(R.script[hist.length])) book = R.script[hist.length];
+    if (!book) {
+      const flags = loadFlags();
+      const pool = (keep) => [...next.entries()].flatMap(([san, es]) => es.filter(keep).flatMap((e) => Array(flags[e.o.id] ? 4 : 1).fill(san)));
+      let opts = R && R.ids.size ? pool((e) => R.ids.has(e.o.id)) : [];   // you varied: stay in the same opening
+      if (!opts.length) opts = pool(() => true);                          // ⚑ priority openings weigh 4×
+      if (opts.length) book = opts[Math.floor(Math.random() * opts.length)];
+    }
+    if (book) { S.playScript = [...hist, book]; S.playIds = new Set(next.get(book).map((e) => e.o.id)); }
   }
   let uci = null;
   if (book) {
@@ -1914,8 +2333,9 @@ function showVerdict(rec) {
   const box = $("verdictBox");
   let html = `<h4>Your move</h4>`;
   if (rec.cls && S.mapMode !== "off") {
-    html += `<div><span class="v c-${rec.cls}">${esc(rec.san)} ${fmt(rec.cp, rec.mate)} · ${CLASS_WORD[rec.cls]}</span></div>`;
-    if (rec.bestSan !== rec.san) html += `<div class="meta">Best was ${esc(rec.bestSan)} ${fmt(rec.bestCp, rec.bestMate)} (depth ${rec.depth}).</div>`;
+    const pov = rec.fenBefore.split(" ")[1];
+    html += `<div><span class="v c-${rec.cls}">${esc(rec.san)} · ${CLASS_WORD[rec.cls]}</span> <span class="meta">(after it: ${sideEval(rec.cp, rec.mate, pov)})</span></div>`;
+    if (rec.bestSan !== rec.san) html += `<div class="meta">Best was ${esc(rec.bestSan)} (${sideEval(rec.bestCp, rec.bestMate, pov)}, depth ${rec.depth}).</div>`;
     else html += `<div class="meta">That's the engine's top choice (depth ${rec.depth}).</div>`;
   } else if (S.mapMode !== "off") {
     html += `<div>${esc(rec.san)}</div><div class="meta">The engine hadn't scored this position yet.</div>`;
@@ -2109,7 +2529,7 @@ function renderPanel() {
   if (sc) {
     const whiteCp = turn === "w" ? sc.best : -sc.best;
     const bm = sc.list[0].mate; const wm = bm != null ? (turn === "w" ? bm : -bm) : null;
-    $("evalNum").textContent = fmt(whiteCp, wm);
+    $("evalNum").textContent = sideEval(whiteCp, wm, "w");
     $("depth").textContent = `depth ${sc.depth}${e && e.done ? "" : "…"}`;
   } else { $("depth").textContent = isUserTurn() ? "thinking…" : ""; }
   const tn = turn === "w" ? "White" : "Black";
@@ -2132,7 +2552,7 @@ function renderPanel() {
   const show = mapVisible() && sc;
   $("tableBox").hidden = !show;
   if (show) {
-    $("tableSide").textContent = tn + (e && e.done ? "" : " (refining…)");
+    $("tableSide").textContent = tn + ` (+ is good for ${tn})` + (e && e.done ? "" : " · refining…");
     $("moveTable").innerHTML = sc.list.map((m) => `<tr data-u="${m.uci}"><td><i class="dotc ${m.cls}"></i> ${esc(m.san)}</td><td class="s">${fmt(m.cp, m.mate)}</td><td class="s meta">${m.loss > 0 && m.loss < MATE_CP / 2 ? "−" + (m.loss / 100).toFixed(1) : ""}</td></tr>`).join("");
     document.querySelectorAll("#moveTable tr").forEach((tr) => {
       tr.onclick = () => { if (!S.preview && isUserTurn() && !S.engineThinking) makeMove(moveObj(tr.dataset.u), true); };
@@ -2180,7 +2600,14 @@ function renderOpeningCard() {
   if (S.mode !== "practice" || !o) { card.hidden = true; return; }
   card.hidden = false;
   $("ocName").textContent = o.name + (isTrick(o) ? " · traps" : "");
+  const fl = isFlagged(o);
+  $("flagBtn").classList.toggle("on", fl);
+  $("flagBtn").textContent = fl ? "⚑ Priority ✓" : "⚑ Priority";
   $("ocIdea").textContent = o.idea;
+  const c = (typeof COMMENTARY !== "undefined" && COMMENTARY[o.id]) || null;
+  $("ocMore").hidden = !c;
+  if (c) $("ocMoreBody").innerHTML =
+    `<p><b>White's plan.</b> ${esc(c.white)}</p><p><b>Black's plan.</b> ${esc(c.black)}</p><p><b>Watch out for.</b> ${esc(c.watch)}</p>`;
 }
 
 /* ============================================================
@@ -2258,12 +2685,16 @@ function buildOpeningSelect() {
     return bits.join(" · ");
   };
   const placed = new Set(PARTS.flatMap(([, ids]) => ids));
-  const grp = (title, list) => `<optgroup label="${title}">` + list
+  const flags = loadFlags();
+  const grp = (title, list) => list.length ? `<optgroup label="${title}">` + list
     .map((o, k) => ({ o, k, p: openingInfo(o, st).prio })).sort((a, b) => b.p - a.p || a.k - b.k)
-    .map(({ o }) => `<option value="${o.id}">${esc(label(o))}</option>`).join("") + `</optgroup>`;
+    .map(({ o }) => `<option value="${o.id}">${esc(label(o))}</option>`).join("") + `</optgroup>` : "";
   const byId = (id) => LIBRARY.find((o) => o.id === id);
+  const notFlagged = (o) => !flags[o.id];
   const others = LIBRARY.filter((o) => !placed.has(o.id));
-  sel.innerHTML = PARTS.map(([title, ids]) => grp(title, ids.map(byId).filter(Boolean))).join("") + (others.length ? grp("Other", others) : "");
+  sel.innerHTML = grp("⚑ Priority", LIBRARY.filter((o) => flags[o.id]))
+    + PARTS.map(([title, ids]) => grp(title, ids.map(byId).filter(Boolean).filter(notFlagged))).join("")
+    + grp("Other", others.filter(notFlagged));
   if (keep && LIBRARY.some((o) => o.id === keep)) sel.value = keep;
   S.opening = LIBRARY.find((o) => o.id === sel.value);
 }
@@ -2303,10 +2734,17 @@ $("views").onchange = () => { lsSet("otr1:views", $("views").value); updateLineP
 document.addEventListener("pointerdown", markActive, true);
 document.addEventListener("keydown", markActive, true);
 $("sidePick").onchange = start;
+$("ocMore").addEventListener("toggle", () => lsSet("otr1:aboutOpen", $("ocMore").open ? "1" : "0"));
 $("settings").addEventListener("toggle", () => lsSet("otr1:settingsOpen", $("settings").open ? "1" : "0"));
 $("bookArrows").onchange = () => { S.bookArrows = $("bookArrows").checked; lsSet("otr1:bookArrows", S.bookArrows ? "1" : "0"); renderBoard(); };
 function nextLine() { S.lineIdx = pickNextLine(); start(); }
-$("restartBtn").onclick = start;
+$("restartBtn").onclick = () => { S.playReplay = null; start(); };
+$("sameBtn").onclick = () => {
+  // instant replay: White repeats the same book moves; if you vary as Black, it stays inside the same opening
+  if (S.playScript.length) S.playReplay = { script: S.playScript.slice(), ids: new Set(S.playIds) };
+  start();
+};
+$("flagBtn").onclick = () => { if (!S.opening) return; toggleFlag(S.opening); buildOpeningSelect(); renderOpeningCard(); };
 $("backBtn").onclick = takeBack;
 $("fwdBtn").onclick = forward;
 $("flipBtn").onclick = () => { S.flipped = !S.flipped; renderBoard(); };
@@ -2337,7 +2775,7 @@ $("resetAll").onclick = () => {
   afterReset("All progress and scores erased. Fresh start!");
 };
 $("exportBtn").onclick = () => {
-  const data = JSON.stringify({ app: "opening-trainer", version: 1, exported: new Date().toISOString(), stats: loadStats(), scores: loadScores() }, null, 1);
+  const data = JSON.stringify({ app: "opening-trainer", version: 1, exported: new Date().toISOString(), stats: loadStats(), scores: loadScores(), flags: loadFlags() }, null, 1);
   const a = document.createElement("a");
   a.href = "data:application/json;charset=utf-8," + encodeURIComponent(data);
   a.download = "opening-progress.json"; document.body.appendChild(a); a.click(); a.remove();
@@ -2360,7 +2798,8 @@ $("importFile").onchange = async () => {
       for (const [day, v] of Object.entries(d.scores)) sc[day] = Math.max(sc[day] || 0, +v || 0);
       lsSet(SCORE_KEY, JSON.stringify(sc));
     }
-    renderOpeningCard(); renderScore(); $("namesStatus").textContent = "Progress imported.";
+    if (d.flags && typeof d.flags === "object") lsSet(FLAG_KEY, JSON.stringify({ ...loadFlags(), ...d.flags }));
+    buildOpeningSelect(); renderOpeningCard(); renderScore(); $("namesStatus").textContent = "Progress imported.";
   } catch (e) { $("namesStatus").textContent = "Couldn't import: " + e.message; }
   $("importFile").value = "";
 };
@@ -2380,6 +2819,7 @@ document.addEventListener("keydown", (e) => {
   if (lsGet("otr1:bookArrows") === "0") { S.bookArrows = false; $("bookArrows").checked = false; }
   const m = lsGet("otr1:map"); if (["always", "after", "off"].includes(m)) { S.mapMode = m; setSeg("mapSeg", m); }
   if (lsGet("otr1:settingsOpen") === "1") $("settings").open = true;
+  if (lsGet("otr1:aboutOpen") === "0") $("ocMore").open = false;
   const dp = lsGet("otr1:depth"); if (dp && +dp >= 3 && +dp <= 11) $("depth").value = dp;
   depthLabel();
   const vw = lsGet("otr1:views"); if (vw && +vw >= 1 && +vw <= 5) $("views").value = vw;
