@@ -150,13 +150,17 @@ impl Builder {
     fn finish(&mut self, g: &mut Game) {
         let Some(hk) = g.deepest.take() else { return };
         let t = &g.tags;
+        let ev = t.event.to_ascii_lowercase();
+        const FAST: [&str; 16] = ["blitz", "rapid", "bullet", "armageddon", "simul", "blind", "exhib", "ultimate moves", "charity", "online", "960", "random", "speed", "lightning", "tiebreak", "playoff"];
+        if FAST.iter().any(|w| ev.contains(w)) { return; }
         let gi = GameInfo { white: t.white.clone(), black: t.black.clone(), welo: t.welo, belo: t.belo, year: t.year, result: t.result, event: t.event.clone(), ply: g.last_target };
         let list = self.top.entry(hk).or_default();
         let score = |x: &GameInfo| (x.welo + x.belo, x.year);
-        if list.len() < 3 || score(&gi) > score(list.last().unwrap()) {
+        if list.iter().any(|x| x.white == gi.white && x.black == gi.black && x.year == gi.year) { return; }
+        if list.len() < 2 || score(&gi) > score(list.last().unwrap()) {
             list.push(gi);
             list.sort_by(|a, b| score(b).cmp(&score(a)));
-            list.truncate(3);
+            list.truncate(2);
         }
     }
     // drop one-off side positions now and then to keep memory flat
@@ -203,7 +207,7 @@ fn main() -> io::Result<()> {
         let is_target = b.targets.contains(hk);
         let mut mv: Vec<&(u16, MoveStat)> = node.moves.iter().collect();
         mv.sort_by(|x, y| y.1.n.cmp(&x.1.n));
-        let cap = if is_target { 10 } else { 6 };
+        let cap = if is_target { 8 } else { 5 };
         let mut parts = Vec::new();
         for (code, s) in mv.into_iter().take(cap) {
             if s.n < 2 && parts.len() >= 3 { break; }
@@ -218,7 +222,7 @@ fn main() -> io::Result<()> {
         if !first { out.push(','); }
         first = false;
         kept += 1;
-        out += &format!("{}:{{\"m\":[{}]", serde_json::to_string(key).unwrap(), parts.join(","));
+        out += &format!("{}:{{\"n\":{},\"m\":[{}]", serde_json::to_string(key).unwrap(), node.n, parts.join(","));
         if let Some(gl) = b.top.get(hk) {
             let gs: Vec<String> = gl.iter().map(|g| {
                 if g.year > 0 { years.0 = years.0.min(g.year); years.1 = years.1.max(g.year); }

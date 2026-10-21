@@ -26,9 +26,11 @@ jobs:
           import json
           files = [x for x in json.load(open('tree.json')) if x.get('type') == 'file']
           for x in files: print(f"{x['path']:70} {x.get('size',0)/1e6:10.1f} MB")
-          otb = [x['path'] for x in files if 'otb' in x['path'].lower() and x['path'].lower().endswith('.7z')
-                 and 'complete' not in x['path'].lower() and 'si4' not in x['path'].lower() and 'si5' not in x['path'].lower()
-                 and 'scid' not in x['path'].lower()]
+          import re
+          # the year-by-year files (+ undated games) together are the whole OTB base, with no overlap;
+          # the Complete / ELO2400 / TrustedIdentity files repeat the same games
+          pat = re.compile(r'^LumbrasGigabase_OTB_(\d{4}-\d{4}|\d{4}|\d{4}_partial_release|noDate)\.7z$')
+          otb = sorted(x['path'] for x in files if pat.match(x['path']))
           open('otb-files.txt', 'w').write('\n'.join(otb) + '\n')
           print('\nUsing:', *otb, sep='\n  ')
           PY
@@ -45,7 +47,7 @@ jobs:
               printf '\n\n'
               rm -f part.7z
             done < otb-files.txt
-          ) | tools/masters/target/release/mstats targets.txt masters.json 2200 6 30 "Lumbra's Giga Base OTB, both players 2200+" 2> >(tee build-log.txt >&2)
+          ) | tools/masters/target/release/mstats targets.txt masters.json 2200 6 1000 "Lumbra's Giga Base OTB, both players 2200+" 2> >(tee build-log.txt >&2)
           ls -la masters.json
       - name: Save the result
         if: always()
