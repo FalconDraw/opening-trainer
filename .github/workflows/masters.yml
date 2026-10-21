@@ -1,0 +1,61 @@
+name: Build master stats
+on:
+  workflow_dispatch:
+  push:
+    branches: [data-build]
+    paths: ['tools/masters/**', '.github/workflows/masters.yml']
+permissions:
+  contents: write
+concurrency: masters
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build mstats
+        run: cargo build --release --manifest-path tools/masters/Cargo.toml
+      - name: Library positions
+        run: |
+          npm i --no-save --silent chess.js@0.10.3
+          node tools/masters/targets.mjs index.html "$PWD/node_modules/chess.js/chess.js" > targets.txt
+      - name: List Lumbra's over-the-board PGN files
+        run: |
+          curl -sSfL "https://huggingface.co/api/datasets/Lumbra74/LumbrasGigabaseCCBYNC40/tree/main?recursive=true" -o tree.json
+          python3 - <<'PY'
+          import json
+          files = [x for x in json.load(open('tree.json')) if x.get('type') == 'file']
+          for x in files: print(f"{x['path']:70} {x.get('size',0)/1e6:10.1f} MB")
+          import re
+          # the year-by-year files (+ undated games) together are the whole OTB base, with no overlap;
+          # the Complete / ELO2400 / TrustedIdentity files repeat the same games
+          pat = re.compile(r'^LumbrasGigabase_OTB_(\d{4}-\d{4}|\d{4}|\d{4}_partial_release|noDate)\.7z$')
+          otb = sorted(x['path'] for x in files if pat.match(x['path']))
+          open('otb-files.txt', 'w').write('\n'.join(otb) + '\n')
+          print('\nUsing:', *otb, sep='\n  ')
+          PY
+      - name: Download and read every game
+        run: |
+          set -o pipefail
+          BASE=https://huggingface.co/datasets/Lumbra74/LumbrasGigabaseCCBYNC40/resolve/main
+          (
+            while read -r f; do
+              [ -z "$f" ] && continue
+              echo "== $f" >&2
+              curl -sSfL --retry 3 -o part.7z "$BASE/$f"
+              7z x -so part.7z
+              printf '\n\n'
+              rm -f part.7z
+            done < otb-files.txt
+          ) | tools/masters/target/release/mstats targets.txt masters.json 2200 6 1000 "Lumbra's Giga Base OTB, both players 2200+" 2> >(tee build-log.txt >&2)
+          ls -la masters.json
+      - name: Save the result
+        if: always()
+        run: |
+          mkdir -p tools/masters/out
+          cp build-log.txt otb-files.txt tools/masters/out/ 2>/dev/null || true
+          [ -f tree.json ] && python3 -c "import json;print('\n'.join(f\"{x['path']} {x.get('size',0)}\" for x in json.load(open('tree.json'))))" > tools/masters/out/hf-files.txt || true
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f tools/masters/out
+          [ -f masters.json ] && git add -f masters.json
+          git commit -m "Master stats: build output" && git push || echo "nothing to commit"

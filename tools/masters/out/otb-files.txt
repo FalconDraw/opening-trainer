@@ -1,0 +1,13 @@
+LumbrasGigabase_OTB_0001-1899.7z
+LumbrasGigabase_OTB_1900-1949.7z
+LumbrasGigabase_OTB_1950-1969.7z
+LumbrasGigabase_OTB_1970-1989.7z
+LumbrasGigabase_OTB_1990-1999.7z
+LumbrasGigabase_OTB_2000-2004.7z
+LumbrasGigabase_OTB_2005-2009.7z
+LumbrasGigabase_OTB_2010-2014.7z
+LumbrasGigabase_OTB_2015-2019.7z
+LumbrasGigabase_OTB_2020-2024.7z
+LumbrasGigabase_OTB_2025.7z
+LumbrasGigabase_OTB_2026_partial_release.7z
+LumbrasGigabase_OTB_noDate.7z
