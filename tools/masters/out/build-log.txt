@@ -1,0 +1,11 @@
+[23s] games read 1867021 used 500000 · positions 323148 -> 157491
+[40s] games read 3563060 used 1000000 · positions 362461 -> 216884
+[60s] games read 5578783 used 1500000 · positions 391312 -> 257223
+[82s] games read 7824452 used 2000000 · positions 408819 -> 290382
+[102s] games read 9871437 used 2500000 · positions 429093 -> 320074
+[123s] games read 11717838 used 3000000 · positions 452054 -> 347059
+[142s] games read 12554229 used 3500000 · positions 433221 -> 360135
+[150s] games read 13054237 used 4000000 · positions 433033 -> 363683
+[189s] games read 15704630 used 4500000 · positions 469411 -> 368482
+[217s] games read 16077122 used 4651751 · positions 403384 -> 369027
+done: games read 16077122 used 4651751 · positions written 87151 · 13214798 bytes · notable-game years (1862, 2026)
