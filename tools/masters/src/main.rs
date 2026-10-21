@@ -99,7 +99,13 @@ impl Visitor for Builder {
             b"Date" => t.year = v.get(0..4).and_then(|y| y.parse().ok()).unwrap_or(0),
             b"White" => t.white = v.into_owned(),
             b"Black" => t.black = v.into_owned(),
-            b"Event" => t.event = v.into_owned(),
+            b"Event" => {
+                // engine-vs-engine games sometimes sit in the OTB files
+                let e = v.to_ascii_lowercase();
+                const ENGINE: [&str; 12] = ["cegt", "ccrl", "tcec", "hannibal", "engine", "computer", "stockfish", "komodo", "leela", "lc0", "fritz", "rybka"];
+                if ENGINE.iter().any(|w| e.contains(w)) { t.bad = true; }
+                t.event = v.into_owned()
+            }
             b"FEN" | b"SetUp" => t.bad = true,
             b"Variant" => if !v.eq_ignore_ascii_case("standard") { t.bad = true },
             _ => {}
@@ -107,7 +113,8 @@ impl Visitor for Builder {
         ControlFlow::Continue(())
     }
     fn begin_movetext(&mut self, t: Tags) -> ControlFlow<(), Game> {
-        if t.bad || t.result == 0 || t.welo < self.min_elo || t.belo < self.min_elo {
+        // no human has been rated over 2900: higher ratings are engines or data errors
+        if t.bad || t.result == 0 || t.welo < self.min_elo || t.belo < self.min_elo || t.welo > 2900 || t.belo > 2900 {
             return ControlFlow::Break(());
         }
         self.used += 1;
@@ -151,7 +158,7 @@ impl Builder {
         let Some(hk) = g.deepest.take() else { return };
         let t = &g.tags;
         let ev = t.event.to_ascii_lowercase();
-        const FAST: [&str; 31] = ["ftx", "crypto", "chessable", "skilling", "goldmoney", "blitz", "rapid", "bullet", "armageddon", "simul", "blind", "exhib", "ultimate moves", "charity", "online", "960", "9lx", "random", "freestyle", "speed", "lightning", "tiebreak", "playoff", "legends of chess", "showdown", "invitational", "champions chess", "meltwater", "airthings", "opera euro", "clutch"];
+        const FAST: [&str; 46] = ["pro league", "carlsen inv", "carlsen tour", "magnus-", "alireza", "esports", "boys", "girls", " u7", " u8", " u9", " u10", " u11", " u12", "kids", "ftx", "crypto", "chessable", "skilling", "goldmoney", "blitz", "rapid", "bullet", "armageddon", "simul", "blind", "exhib", "ultimate moves", "charity", "online", "960", "9lx", "random", "freestyle", "speed", "lightning", "tiebreak", "playoff", "legends of chess", "showdown", "invitational", "champions chess", "meltwater", "airthings", "opera euro", "clutch"];
         if FAST.iter().any(|w| ev.contains(w)) { return; }
         if g.last_target == 0 { return; }   // left the library on move 1: nothing to show
         let gi = GameInfo { white: t.white.clone(), black: t.black.clone(), welo: t.welo, belo: t.belo, year: t.year, result: t.result, event: t.event.clone(), ply: g.last_target };
