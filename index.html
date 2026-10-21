@@ -132,6 +132,17 @@
     .bookbox .num{flex:0 0 auto;width:18px;height:18px;border-radius:50%;background:#2f7bf0;color:#fff;font:700 11px/18px system-ui;text-align:center}
     .bookbox .san{font-family:ui-monospace,Menlo,monospace;font-weight:650;color:#cfe0ff;white-space:nowrap}
     .bookbox .nm{color:var(--ink)}
+    .bookbox .mp{margin-left:auto;color:#8fb6ff;font-size:12px;white-space:nowrap}
+    .mrow{display:grid;grid-template-columns:72px 36px 1fr;gap:8px;align-items:center;padding:3px 4px;border-radius:6px;font-size:13px}
+    .mrow.on{background:#2a3142}
+    .mrow.click{cursor:pointer} .mrow.click:hover{background:#2a3142}
+    .mrow .san{font-family:ui-monospace,Menlo,monospace;font-weight:650;white-space:nowrap}
+    .mrow .pct{color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+    .mbar{display:flex;height:9px;border-radius:5px;overflow:hidden;border:1px solid #4a5165}
+    .mbar i{display:block;height:100%} .mbar .w{background:#eceff5} .mbar .d{background:#8b93a7} .mbar .b{background:#1a1d25}
+    .mnote{grid-column:2 / -1;color:var(--muted);font-size:11.5px;margin-top:-2px}
+    .mgames{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--muted)}
+    .mgames li{margin:3px 0} .mgames b{color:var(--ink);font-weight:600}
     .announce{border-color:var(--accent);animation:flash 1.2s ease-out}
     .sq.pop{animation:pop .9s ease-out}
     .sq.missflash{animation:missflash .45s ease-in-out 2}
@@ -221,6 +232,7 @@
       <label for="rating">Stockfish rating: <strong id="ratingVal">1500</strong></label>
       <input type="range" id="rating" min="800" max="3000" step="50" value="1500" />
       <p class="hint" id="ratingHint">Below 1320 the strength is approximate.</p>
+      <label class="check"><input type="checkbox" id="mastersOn" checked /> Show master games</label>
       <label>Progress</label>
       <div class="mini" style="margin-top:0">
         <button class="ghost" id="exportBtn">Export</button>
@@ -244,11 +256,13 @@
     </details>
     <p class="hint" id="engineStatus">Loading Stockfish…</p>
     <p class="hint" id="namesStatus"></p>
+    <p class="hint" id="mastersStatus"></p>
     <p class="hint credits">Free, no account, runs entirely in your browser; your progress stays on your device.<br>
       Engine: <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener">Stockfish 19 lite</a> (GPLv3) ·
       Pieces: cburnett set by Colin M.L. Burnett ·
       Opening names: <a href="https://github.com/lichess-org/chess-openings" target="_blank" rel="noopener">lichess-org/chess-openings</a> (CC0) ·
-      Move logic: <a href="https://github.com/jhlywa/chess.js" target="_blank" rel="noopener">chess.js</a>.<br>
+      Move logic: <a href="https://github.com/jhlywa/chess.js" target="_blank" rel="noopener">chess.js</a> ·
+      Master games: <a href="https://lumbrasgigabase.com" target="_blank" rel="noopener">Lumbra's Giga Base</a> (CC BY-NC 4.0).<br>
       Not affiliated with or endorsed by Lichess.</p>
   </aside>
 
@@ -290,6 +304,7 @@
         <div class="box scorebox" id="scoreBox" hidden></div>
         <div class="box announce" id="announceBox" hidden></div>
         <div class="bookbox" id="bookBox" hidden></div>
+        <div class="box" id="mastersBox" hidden></div>
         <div class="box">
           <div class="evalrow"><h4 style="margin:0">Evaluation</h4><span class="meta" id="depth"></span></div>
           <div class="evalrow"><span class="evalnum" id="evalNum">Equal</span><span class="meta" id="turnInfo"></span></div>
@@ -1975,6 +1990,95 @@ function renderName() {
 }
 
 /* ============================================================
+   Master games: Lumbra's Giga Base, over-the-board, both players 2200+
+   (masters.json, built by tools/masters; keyed "board turn castling")
+   ============================================================ */
+const MASTERS_URLS = [
+  ...(/^https?:/.test(location.protocol) ? ["masters.json"] : []),
+  "https://falcondraw.github.io/opening-trainer/masters.json",
+];
+let MASTERS = null;
+const mkey = (fen) => fen.split(" ").slice(0, 3).join(" ");
+async function loadMasters() {
+  for (const u of MASTERS_URLS) {
+    try {
+      const r = await fetch(u); if (!r.ok) continue;
+      const d = await r.json(); if (!d || !d.pos) continue;
+      MASTERS = d;
+      $("mastersStatus").textContent = `${(d.games || 0).toLocaleString()} master games loaded.`;
+      S.mastersHtml = null; renderPanel(); renderBookBox();
+      return;
+    } catch (e) { /* next */ }
+  }
+  $("mastersStatus").textContent = "Master games aren't available right now.";
+}
+function masterStats(fen) {
+  const p = MASTERS && MASTERS.pos[mkey(fen)]; if (!p) return null;
+  const n = p.n || p.m.reduce((a, m) => a + m[1], 0);
+  const recentAll = p.m.reduce((a, m) => a + (m[5] || 0), 0);
+  const moves = p.m.map(([san, k, w, d, b, r]) => ({ san, n: k, w, d, b, r: r || 0, share: k / n, white: (w + d / 2) / k }));
+  return { n, recentAll, moves, games: p.g || [] };
+}
+// "out of fashion" / "popular lately": compare a move's share since recentYear with its all-time share
+function trendNote(m, st) {
+  const since = (MASTERS && MASTERS.recentYear) || 2015;
+  if (st.recentAll < 40 || m.n < 20) return "";
+  const rs = m.r / st.recentAll;
+  if (rs >= m.share * 1.6 && rs - m.share >= 0.06) return `↑ popular lately (${Math.round(rs * 100)}% since ${since})`;
+  if (rs <= m.share * 0.45 && m.share - rs >= 0.06) return `↓ out of fashion (${Math.round(rs * 100)}% since ${since})`;
+  return "";
+}
+const RES = ["", "1-0", "½-½", "0-1"];
+function renderMasters() {
+  const box = $("mastersBox");
+  const on = $("mastersOn").checked;
+  if (!on || !MASTERS || S.missing) { box.hidden = true; S.mastersHtml = null; return; }
+  // Practice: never give the answer away, so show the position BEFORE the last move, with that move marked
+  let fen, ply, mark = null, clickable = false;
+  if (S.preview) { fen = S.preview.rec.fenBefore; ply = S.records.indexOf(S.preview.rec); mark = S.preview.rec.san; }
+  else if (S.mode === "practice") {
+    if (!S.records.length) { box.hidden = true; S.mastersHtml = null; return; }
+    const r = S.records[S.records.length - 1]; fen = r.fenBefore; ply = S.records.length - 1; mark = r.san;
+  } else { fen = S.game.fen(); ply = S.records.length; clickable = S.mode === "explore"; }
+  const st = masterStats(fen);
+  let html;
+  if (!st) {
+    html = `<h4>Master games</h4><p class="meta" style="margin:0">No 2200+ games in the database reached ${ply ? "this position" : "here"}.</p>`;
+  } else {
+    const rows = st.moves.slice(0, 6).map((m) => {
+      const w = m.w / m.n * 100, d = m.d / m.n * 100;
+      const tn = trendNote(m, st);
+      return `<div class="mrow${m.san === mark ? " on" : ""}${clickable ? " click" : ""}" data-san="${esc(m.san)}" title="${m.n.toLocaleString()} games · White wins ${Math.round(w)}%, draws ${Math.round(d)}%, Black wins ${Math.round(100 - w - d)}%">
+        <span class="san">${esc(moveLabel(ply, m.san))}</span><span class="pct">${m.share >= 0.995 ? "100" : Math.max(1, Math.round(m.share * 100))}%</span>
+        <span class="mbar"><i class="w" style="width:${w}%"></i><i class="d" style="width:${d}%"></i><i class="b" style="width:${100 - w - d}%"></i></span>
+        ${tn ? `<span class="mnote">${tn}</span>` : ""}</div>`;
+    }).join("");
+    const markIn = mark && !st.moves.slice(0, 6).some((m) => m.san === mark);
+    const gl = st.games.length ? `<ul class="mgames">${st.games.map((g) =>
+      `<li><b>${esc(g[0])}</b> (${g[2]}) – <b>${esc(g[1])}</b> (${g[3]}), ${g[4] || "?"} · ${RES[g[5]] || ""}${g[6] ? ` · ${esc(g[6])}` : ""}</li>`).join("")}</ul>` : "";
+    html = `<h4>Master games · ${st.n.toLocaleString()}${mark ? ` · before ${esc(moveLabel(ply, mark))}` : ""}</h4>${rows}
+      ${markIn ? `<p class="meta" style="margin:4px 0 0">${esc(mark)}: ${(() => { const m = st.moves.find((x) => x.san === mark); return m ? `${m.n} games` : "rare at master level"; })()}</p>` : ""}
+      <p class="meta" style="margin:4px 0 0">Bar: <span style="color:#eceff5">White wins</span> · draws · Black wins.</p>
+      ${gl ? `<p class="meta" style="margin:8px 0 0">Strongest games that left our lines here:</p>${gl}` : ""}`;
+  }
+  box.hidden = false;
+  if (html === S.mastersHtml) return;
+  S.mastersHtml = html; box.innerHTML = html;
+  if (clickable) box.querySelectorAll(".mrow[data-san]").forEach((el) => el.onclick = () => {
+    if (!canMove()) return;
+    const m = new Chess(S.game.fen()).move(el.dataset.san); if (m) makeMove({ from: m.from, to: m.to, promotion: m.promotion }, true);
+  });
+}
+/* Play engine: pick among moves the way masters do, weighted by how often they're played */
+function masterPick(fen, minShare = 0.05) {
+  const st = masterStats(fen); if (!st || st.n < 30) return null;
+  const ms = st.moves.filter((m) => m.share >= minShare);
+  const tot = ms.reduce((a, m) => a + m.n, 0); let x = Math.random() * tot;
+  for (const m of ms) { x -= m.n; if (x <= 0) return m.san; }
+  return ms.length ? ms[0].san : null;
+}
+
+/* ============================================================
    Heatmap analysis: MultiPV over every legal move, refined live
    ============================================================ */
 let renderQueued = false;
@@ -2214,15 +2318,24 @@ async function engineReply() {
     const hist = S.records.map((r) => r.san), R = S.playReplay;
     const next = bookNext(hist);
     // instant replay: repeat the same White moves while you repeat yours
-    if (R && hist.length < R.script.length && hist.every((s, k) => s === R.script[k]) && next.has(R.script[hist.length])) book = R.script[hist.length];
+    if (R && hist.length < R.script.length && hist.every((s, k) => s === R.script[k])) book = R.script[hist.length];
     if (!book) {
       const flags = loadFlags();
-      const pool = (keep) => [...next.entries()].flatMap(([san, es]) => es.filter(keep).flatMap((e) => Array(flags[e.o.id] ? 4 : 1).fill(san)));
+      // weight each library move by how often masters play it (a small floor keeps rare trap lines in rotation),
+      // ⚑ priority openings weigh 4×
+      const mst = masterStats(S.game.fen());
+      const mw = (san) => { if (!mst) return 1; const m = mst.moves.find((x) => x.san === san); return (m ? m.share : 0) + 0.04; };
+      const pool = (keep) => [...next.entries()].map(([san, es]) => {
+        const ok = es.filter(keep); if (!ok.length) return null;
+        return { san, w: mw(san) * (mst ? 1 : ok.length) * (ok.some((e) => flags[e.o.id]) ? 4 : 1) };
+      }).filter(Boolean);
       let opts = R && R.ids.size ? pool((e) => R.ids.has(e.o.id)) : [];   // you varied: stay in the same opening
-      if (!opts.length) opts = pool(() => true);                          // ⚑ priority openings weigh 4×
-      if (opts.length) book = opts[Math.floor(Math.random() * opts.length)];
+      if (!opts.length) opts = pool(() => true);
+      if (opts.length) { let x = Math.random() * opts.reduce((a, o) => a + o.w, 0); book = opts.find((o) => (x -= o.w) <= 0)?.san || opts[0].san; }
     }
     if (book) { S.playScript = [...hist, book]; S.playIds = new Set(next.get(book).map((e) => e.o.id)); }
+    // past the library lines: keep playing master moves while there are enough games
+    if (!book && hist.length < 30) { const ms = masterPick(S.game.fen()); if (ms) { book = ms; S.playScript = [...hist, book]; } }
   }
   let uci = null;
   if (book) {
@@ -2542,11 +2655,13 @@ function renderBookBox() {
   }
   if (!list.length || S.preview) { box.hidden = true; return; }
   const ply = S.records.length;
+  const mst = masterStats(S.game.fen());
+  const mp = (san) => { if (!mst) return ""; const m = mst.moves.find((x) => x.san === san); return `<span class="mp" title="share of master games from this position">${m ? Math.max(1, Math.round(m.share * 100)) + "% of masters" : "rare for masters"}</span>`; };
   if (S.mode === "practice") {
-    box.innerHTML = `<h5>${list[0].sign ? "Signpost" : "Book move"}</h5><div class="bk"><span class="san">${esc(moveLabel(ply, list[0].san))}</span><span class="nm">${esc(list[0].label)}</span></div>`;
+    box.innerHTML = `<h5>${list[0].sign ? "Signpost" : "Book move"}</h5><div class="bk"><span class="san">${esc(moveLabel(ply, list[0].san))}</span><span class="nm">${esc(list[0].label)}</span>${mp(list[0].san)}</div>`;
   } else {
     box.innerHTML = `<h5>Book moves</h5>` + list.map((b) =>
-      `<div class="bk${S.hotBook === b.num ? " on" : ""}" data-n="${b.num}"><span class="num">${b.num}</span><span class="san">${esc(moveLabel(ply, b.san))}</span><span class="nm">${esc(b.label)}</span></div>`).join("");
+      `<div class="bk${S.hotBook === b.num ? " on" : ""}" data-n="${b.num}"><span class="num">${b.num}</span><span class="san">${esc(moveLabel(ply, b.san))}</span><span class="nm">${esc(b.label)}</span>${mp(b.san)}</div>`).join("");
     box.querySelectorAll(".bk").forEach((el) => {
       const n = +el.dataset.n;
       el.onmouseenter = () => { S.hotBook = n; renderBoardArrowsOnly(); };
@@ -2578,6 +2693,7 @@ function renderPanel() {
   else $("turnInfo").textContent = S.engineThinking ? "Engine is thinking…" : isUserTurn() ? `${tn} to move${S.mode === "explore" ? "" : " (you)"}` : `${tn} to move`;
   const bt = $("backToGame"); if (bt) bt.onclick = exitPreview;
   $("mapHelp").hidden = !mapVisible();
+  renderMasters();
 
   // move list
   let html = "";
@@ -2870,6 +2986,9 @@ document.addEventListener("keydown", (e) => {
   start();
   connectEngine();
   loadNames();
+  if (lsGet("otr1:masters") === "0") $("mastersOn").checked = false;
+  $("mastersOn").onchange = () => { lsSet("otr1:masters", $("mastersOn").checked ? "1" : "0"); renderPanel(); };
+  loadMasters();
 })();
 function connectEngine() {
   $("engineStatus").textContent = "Loading Stockfish…";

@@ -1,9 +1,6 @@
 name: Build master stats
 on:
-  workflow_dispatch:
-  push:
-    branches: [data-build]
-    paths: ['tools/masters/**', '.github/workflows/masters.yml']
+  workflow_dispatch:   # run it from the Actions tab after adding openings to the library
 permissions:
   contents: write
 concurrency: masters
