@@ -1541,6 +1541,14 @@ const ENGINE_SOURCES = [
 ];
 let engineSrc = null;                         // the base URL that worked
 const engJs = (b) => b + ENGINE_FILE + ".js", engWasm = (b) => b + ENGINE_FILE + ".wasm";
+// a source only counts if it has BOTH files (e.g. the .js uploaded to a site but not the .wasm)
+async function wasmOk(base) {
+  try {
+    const r = await fetch(engWasm(base), { method: "HEAD", cache: "no-store" });
+    if (r.status === 405) return true;                       // server doesn't do HEAD: assume fine
+    return r.ok && !/html/i.test(r.headers.get("content-type") || "");
+  } catch (e) { return false; }
+}
 let engineUrlPromise = null;
 function engineUrl() {
   if (!engineUrlPromise) {
@@ -1551,6 +1559,7 @@ function engineUrl() {
           if (!r.ok) continue;
           const src = await r.text();
           if (src.length < 10000 || /^\s*</.test(src)) continue;   // an error page, not the engine
+          if (!(await wasmOk(base))) continue;
           engineSrc = base;
           return URL.createObjectURL(new Blob([src], { type: "text/javascript" })) + "#" + encodeURIComponent(engWasm(base));
         } catch (e) { /* try the next source */ }
@@ -1577,6 +1586,7 @@ function mainThreadFactory() {
       const order = engineSrc ? [engineSrc, ...ENGINE_SOURCES.filter((b) => b !== engineSrc)] : ENGINE_SOURCES;
       let last;
       for (const base of order) {
+        if (base !== engineSrc && !(await wasmOk(base))) continue;
         try { const f = await loadScript(engJs(base)); engineSrc = base; return f; } catch (e) { last = e; }
       }
       throw new Error((last && last.message) || "Could not download Stockfish") ;
