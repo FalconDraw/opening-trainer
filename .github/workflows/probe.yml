@@ -1,0 +1,28 @@
+name: probe-lumbra
+on:
+  push:
+    branches: [data-probe]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find the PGN download links
+        run: |
+          set -x
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
+          for u in https://lumbrasgigabase.com/en/download-in-pgn-format-en/ "https://lumbrasgigabase.com/en/download-in-pgn-format-en/?cp=2"; do
+            curl -sSL -A "$UA" "$u" -o page.html || true
+            echo "== $u $(wc -c < page.html) bytes"
+            grep -oE 'https?://[^"'"'"' <>]*(wpdmdl|download|\.7z|\.zip|\.pgn)[^"'"'"' <>]*' page.html | sort -u | head -80
+            grep -oE 'data-downloadurl="[^"]*"' page.html | sort -u | head -40
+            grep -oE '<h3[^>]*>[^<]*OTB[^<]*' page.html | head -40
+          done
+      - name: Try the first few links
+        run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
+          curl -sSL -A "$UA" https://lumbrasgigabase.com/en/download-in-pgn-format-en/ -o page.html
+          for l in $(grep -oE 'https?://[^"'"'"' <>]*wpdmdl=[0-9]+[^"'"'"' <>]*' page.html | sed 's/&amp;/\&/g' | sort -u | head -6); do
+            echo "== $l"
+            curl -sSL -A "$UA" -r 0-1023 -D - -o head.bin "$l" | grep -iE '^(HTTP|content-type|content-length|content-range|content-disposition|location)' || true
+            file head.bin; xxd head.bin | head -2
+          done
