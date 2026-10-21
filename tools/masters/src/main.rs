@@ -151,8 +151,9 @@ impl Builder {
         let Some(hk) = g.deepest.take() else { return };
         let t = &g.tags;
         let ev = t.event.to_ascii_lowercase();
-        const FAST: [&str; 16] = ["blitz", "rapid", "bullet", "armageddon", "simul", "blind", "exhib", "ultimate moves", "charity", "online", "960", "random", "speed", "lightning", "tiebreak", "playoff"];
+        const FAST: [&str; 26] = ["blitz", "rapid", "bullet", "armageddon", "simul", "blind", "exhib", "ultimate moves", "charity", "online", "960", "9lx", "random", "freestyle", "speed", "lightning", "tiebreak", "playoff", "legends of chess", "showdown", "invitational", "champions chess", "meltwater", "airthings", "opera euro", "clutch"];
         if FAST.iter().any(|w| ev.contains(w)) { return; }
+        if g.last_target == 0 { return; }   // left the library on move 1: nothing to show
         let gi = GameInfo { white: t.white.clone(), black: t.black.clone(), welo: t.welo, belo: t.belo, year: t.year, result: t.result, event: t.event.clone(), ply: g.last_target };
         let list = self.top.entry(hk).or_default();
         let score = |x: &GameInfo| (x.welo + x.belo, x.year);
