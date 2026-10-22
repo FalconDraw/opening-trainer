@@ -106,6 +106,11 @@
     table.mt{width:100%;border-collapse:collapse;font-size:13px}
     table.mt td{padding:3px 4px;border-top:1px solid #2c3242}
     table.mt tr{cursor:pointer}
+    table.mt tr.hd{cursor:default;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em} table.mt tr.hd:hover{background:none}
+    table.mt td.mcol{color:#8fb6ff} table.mt td.never{color:#7c849a;font-style:italic}
+    .sq .mlbl{position:absolute;left:2px;top:2px;z-index:2;font:700 clamp(8px,1.3cqw,12px)/1 system-ui,sans-serif;background:#15213ae6;color:#9cc2ff;border-radius:4px;padding:2px 3px;pointer-events:none}
+    .sq .mlbl.never{color:#b7bdcc;background:#101216d9;font-style:italic;font-weight:600}
+    .mverdict{margin-top:6px;font-size:13px;color:#9cc2ff} .mverdict.rare{color:#e0b860} .mverdict.never{color:#ff9f80}
     table.mt tr:hover{background:#2a3142}
     table.mt td.s{text-align:right;font-family:ui-monospace,Menlo,monospace}
     .scroll{max-height:260px;overflow:auto}
@@ -2023,7 +2028,24 @@ function masterStats(fen) {
   const n = p.n || p.m.reduce((a, m) => a + m[1], 0);
   const recentAll = p.m.reduce((a, m) => a + (m[5] || 0), 0);
   const moves = p.m.map(([san, k, w, d, b, r]) => ({ san, n: k, w, d, b, r: r || 0, share: k / n, white: (w + d / 2) / k }));
-  return { n, recentAll, moves, games: p.g || [] };
+  const all = new Map(moves.map((m) => [m.san, m.n]));
+  (p.r || []).forEach(([san, k]) => all.set(san, k));    // every other move masters played (count only)
+  return { n, recentAll, moves, all, games: p.g || [] };
+}
+// how often masters played one move here: {n, share, total} (n = 0: never), or null if no master games reached the position
+function masterMove(fen, san) {
+  const st = masterStats(fen); if (!st || !$("mastersOn").checked) return null;
+  const n = st.all.get(san) || 0;
+  return { n, share: n / st.n, total: st.n, st };
+}
+const pctTxt = (sh) => sh >= 0.995 ? "100%" : sh >= 0.01 ? Math.round(sh * 100) + "%" : "<1%";
+function masterSentence(fen, san) {
+  const mm = masterMove(fen, san); if (!mm) return "";
+  const tot = mm.total.toLocaleString();
+  if (!mm.n) return `<div class="mverdict never">Masters: <b>never played</b> here (${tot} master games reached this position).</div>`;
+  const m = mm.st.moves.find((x) => x.san === san);
+  const sc = m ? ` · White scores ${Math.round(m.white * 100)}%` : "";
+  return `<div class="mverdict${mm.share < 0.01 ? " rare" : ""}">Masters: ${mm.share < 0.01 ? "<b>rare</b>, " : ""}played in ${pctTxt(mm.share)} of ${tot} games (${mm.n.toLocaleString()})${sc}.</div>`;
 }
 // "out of fashion" / "popular lately": compare a move's share since recentYear with its all-time share
 function trendNote(m, st) {
@@ -2506,6 +2528,7 @@ function showVerdict(rec) {
       : `<div class="praise">✓ Good job! +1 point</div>` + (S.memStreak > 1 ? `<div class="meta">${S.memStreak} moves in a row from memory.</div>` : "");
     html = html.replace(`<h4>Your move</h4>`, `<h4>Your move</h4>${top}`);
   }
+  html += masterSentence(rec.fenBefore, rec.san);
   if (S.mapMode !== "off" && cache.get(rec.fenBefore)) html += `<div style="margin-top:8px"><button class="linkbtn" id="seeMap">See the move colors for that position</button></div>`;
   box.innerHTML = html; box.hidden = false;
   const b = $("seeMap"); if (b) b.onclick = () => enterPreview(S.records.indexOf(rec));
@@ -2616,7 +2639,8 @@ function renderBoard() {
     if (S.selected) for (const m of sc.list) if (m.uci.startsWith(S.selected)) { const t = m.uci.slice(2, 4); if (!dest[t] || m.cp > dest[t].cp) dest[t] = m; }
   }
   const legalDest = new Set();
-  if (S.selected && !sc) pos.moves({ square: S.selected, verbose: true }).forEach((m) => legalDest.add(m.to));
+  const legalSan = {};
+  if (S.selected && !sc) pos.moves({ square: S.selected, verbose: true }).forEach((m) => { legalDest.add(m.to); legalSan[m.to] = legalSan[m.to] || m.san; });
   const last = S.preview ? null : S.records[S.records.length - 1];
   // pieces are only rebuilt when the position or orientation changes; colors update in place
   const key = fen.split(" ")[0] + "|" + S.flipped;
@@ -2624,18 +2648,24 @@ function renderBoard() {
   for (const div of el.children) {
     const sq = div.dataset.sq;
     div.className = div.dataset.base;
-    const oldLbl = div.querySelector(".lbl"); if (oldLbl) oldLbl.remove();
+    div.querySelectorAll(".lbl,.mlbl").forEach((n) => n.remove());
     const p = pos.get(sq);
     if (last && (sq === last.from || sq === last.to)) div.classList.add("last");
     if (sc) {
       if (S.selected && dest[sq]) {
         div.classList.add("h-" + dest[sq].cls);
         const lb = document.createElement("span"); lb.className = "lbl"; lb.textContent = fmt(dest[sq].cp, dest[sq].mate); div.appendChild(lb);
+        const mm = masterMove(fen, dest[sq].san);
+        if (mm) { const ml = document.createElement("span"); ml.className = "mlbl" + (mm.n ? "" : " never"); ml.textContent = mm.n ? pctTxt(mm.share) : "never"; ml.title = "share of master games"; div.appendChild(ml); }
       } else if (p && p.color === turn && pieceBest[sq] != null && !(S.selected && S.selected !== sq)) {
         div.classList.add("h-" + lossClass(pieceBest[sq]));
       }
     }
-    if (legalDest.has(sq)) div.classList.add("dot");
+    if (legalDest.has(sq)) {
+      div.classList.add("dot");
+      const mm = masterMove(fen, legalSan[sq]);
+      if (mm) { const ml = document.createElement("span"); ml.className = "mlbl" + (mm.n ? "" : " never"); ml.textContent = mm.n ? pctTxt(mm.share) : "never"; div.appendChild(ml); }
+    }
     if (sq === S.selected) div.classList.add("sel");
     if (sq === S.popSq) { div.classList.remove("pop"); void div.offsetWidth; div.classList.add("pop"); }
   }
@@ -2716,8 +2746,11 @@ function renderPanel() {
   $("tableBox").hidden = !show;
   if (show) {
     $("tableSide").textContent = tn + ` (+ is good for ${tn})` + (e && e.done ? "" : " · refining…");
-    $("moveTable").innerHTML = sc.list.map((m) => `<tr data-u="${m.uci}"><td><i class="dotc ${m.cls}"></i> ${esc(m.san)}</td><td class="s">${fmt(m.cp, m.mate)}</td><td class="s meta">${m.loss > 0 && m.loss < MATE_CP / 2 ? "−" + (m.loss / 100).toFixed(1) : ""}</td></tr>`).join("");
-    document.querySelectorAll("#moveTable tr").forEach((tr) => {
+    const mst = $("mastersOn").checked ? masterStats(fen) : null;
+    const mcell = (san) => { if (!mst) return ""; const k = mst.all.get(san) || 0; return k ? `<td class="s mcol">${pctTxt(k / mst.n)}</td>` : `<td class="s mcol never">never</td>`; };
+    $("moveTable").innerHTML = (mst ? `<tr class="hd"><td>Move</td><td class="s">Score</td><td class="s">Loss</td><td class="s" title="share of ${mst.n.toLocaleString()} master games from this position">Masters</td></tr>` : "") +
+      sc.list.map((m) => `<tr data-u="${m.uci}"><td><i class="dotc ${m.cls}"></i> ${esc(m.san)}</td><td class="s">${fmt(m.cp, m.mate)}</td><td class="s meta">${m.loss > 0 && m.loss < MATE_CP / 2 ? "−" + (m.loss / 100).toFixed(1) : ""}</td>${mcell(m.san)}</tr>`).join("");
+    document.querySelectorAll("#moveTable tr[data-u]").forEach((tr) => {
       tr.onclick = () => { if (!S.preview && isUserTurn() && !S.engineThinking) makeMove(moveObj(tr.dataset.u), true); };
       tr.onmouseenter = () => { const u = tr.dataset.u; drawArrows([{ from: u.slice(0, 2), to: u.slice(2, 4), color: "green" }]); };
       tr.onmouseleave = () => drawArrows([]);
