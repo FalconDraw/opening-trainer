@@ -140,13 +140,16 @@
     .bookbox .num{flex:0 0 auto;width:18px;height:18px;border-radius:50%;background:#2f7bf0;color:#fff;font:700 11px/18px system-ui;text-align:center}
     .bookbox .san{font-family:ui-monospace,Menlo,monospace;font-weight:650;color:#cfe0ff;white-space:nowrap}
     .bookbox .nm{color:var(--ink)}
-    .bookbox .mp{margin-left:auto;color:#8fb6ff;font-size:12px;white-space:nowrap}
-    .mrow{display:grid;grid-template-columns:72px 40px 1fr 112px;gap:8px;align-items:center;padding:3px 4px;border-radius:6px;font-size:13px}
+    .bookbox .mp{margin-left:auto;font-size:12px;white-space:nowrap} .bookbox .mp.never{color:#ff9f80;font-style:italic}
+    .mrow{display:grid;grid-template-columns:72px 44px 1fr;gap:8px;align-items:center;padding:3px 4px;border-radius:6px;font-size:13px}
     .mrow.on{background:#2a3142}
     .mrow.click{cursor:pointer} .mrow.click:hover{background:#2a3142}
     .mrow .san{font-family:ui-monospace,Menlo,monospace;font-weight:650;white-space:nowrap}
     .mrow .pct{color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
-    .mbar{display:flex;height:9px;border-radius:5px;overflow:hidden;border:1px solid #4a5165}
+    .mbar{display:flex;height:17px;border-radius:5px;overflow:hidden;border:1px solid #4a5165}
+    .mbar i{font:700 10.5px/15px system-ui,sans-serif;font-style:normal;text-align:center;overflow:hidden;white-space:nowrap}
+    .mbar .w{color:#14171f} .mbar .d{color:#14171f} .mbar .b{color:#e8ecf4}
+    .mkey{display:flex;justify-content:space-between} .mkey span:first-child{color:#f2f4f8} .mkey span:last-child{color:#e0a46a}
     .mbar i{display:block;height:100%} .mbar .w{background:#eceff5} .mbar .d{background:#8b93a7} .mbar .b{background:#1a1d25}
     .mrow.mhead{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;padding-bottom:0}
     .mrow .nums{display:grid;grid-template-columns:repeat(3,1fr);column-gap:6px;text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px}
@@ -2054,9 +2057,14 @@ function masterBadge(mm) {
   if (!mm.n) { ml.className = "mlbl never"; ml.textContent = "never"; ml.title = "never played by masters"; return ml; }
   const m = mm.m, sc = m && m.w != null && m.n >= 10 ? (m.w + m.d / 2) / m.n : null;
   ml.className = "mlbl" + (sc == null ? "" : sc >= 0.53 ? " wfav" : sc <= 0.47 ? " bfav" : "");
-  ml.textContent = pctTxt(mm.share);
-  ml.title = `${mm.n.toLocaleString()} master games${m && m.w != null ? ` · White won ${pct(m.w / m.n)}%, drawn ${pct(m.d / m.n)}%, Black won ${pct(m.b / m.n)}%` : ""}`;
+  ml.textContent = m && m.w != null ? `W${pct(m.w / m.n)} B${pct(m.b / m.n)}` : pctTxt(mm.share);
+  ml.title = `played in ${pctTxt(mm.share)} of master games (${mm.n.toLocaleString()})${m && m.w != null ? ` · White won ${pct(m.w / m.n)}%, drawn ${pct(m.d / m.n)}%, Black won ${pct(m.b / m.n)}%` : ""}`;
   return ml;
+}
+// win percentages for White and Black after a move (draws are the rest)
+function winTxt(m, sep = " · ") {
+  if (!m || m.w == null) return "";
+  return `<span class="ww">W ${pct(m.w / m.n)}%</span>${sep}<span class="bb">B ${pct(m.b / m.n)}%</span>`;
 }
 // results of one move in master games: numbers, a bar, and who did better in practice
 function pct(x) { return Math.round(x * 100); }
@@ -2111,17 +2119,16 @@ function renderMasters() {
       const tn = trendNote(m, st);
       return `<div class="mrow${m.san === mark ? " on" : ""}${clickable ? " click" : ""}" data-san="${esc(m.san)}" title="${m.n.toLocaleString()} games · ${resultWords(m)}">
         <span class="san">${esc(moveLabel(ply, m.san))}</span><span class="pct">${pctTxt(m.share)}</span>
-        <span class="mbar"><i class="w" style="width:${w}%"></i><i class="d" style="width:${d}%"></i><i class="b" style="width:${100 - w - d}%"></i></span>
-        <span class="nums"><span class="ww">${Math.round(w)}</span><span class="dd">${Math.round(d)}</span><span class="bb">${Math.round(100 - w - d)}</span></span>
+        <span class="mbar"><i class="w" style="width:${w}%">${w >= 10 ? Math.round(w) + "%" : ""}</i><i class="d" style="width:${d}%">${d >= 10 ? Math.round(d) + "%" : ""}</i><i class="b" style="width:${100 - w - d}%">${100 - w - d >= 10 ? Math.round(100 - w - d) + "%" : ""}</i></span>
         ${tn ? `<span class="mnote">${tn}</span>` : ""}</div>`;
     }).join("");
     const markIn = mark && !st.moves.slice(0, 6).some((m) => m.san === mark);
     const gl = st.games.length ? `<ul class="mgames">${st.games.map((g) =>
       `<li><b>${esc(g[0])}</b> (${g[2]}) – <b>${esc(g[1])}</b> (${g[3]}), ${g[4] || "?"} · ${RES[g[5]] || ""}${g[6] ? ` · ${esc(g[6])}` : ""}</li>`).join("")}</ul>` : "";
     html = `<h4>Master games · ${st.n.toLocaleString()}${mark ? ` · before ${esc(moveLabel(ply, mark))}` : ""}</h4>
-      <div class="mrow mhead"><span>Move</span><span class="pct">Played</span><span>Results</span><span class="nums"><span class="ww">White</span><span class="dd">Draw</span><span class="bb">Black</span></span></div>${rows}
+      <div class="mrow mhead"><span>Move</span><span class="pct" title="how often masters chose this move here">Played</span><span class="mkey"><span>White won</span><span>drawn</span><span>Black won</span></span></div>${rows}
       ${mark && markIn ? `<p class="meta" style="margin:4px 0 0">${(() => { const m = st.all.get(mark); return m ? `${esc(mark)}: ${m.n} game${m.n === 1 ? "" : "s"}${m.w != null ? ` · ${resultsHtml(m)}` : ""}` : `${esc(mark)}: never played by masters`; })()}</p>` : ""}
-      <p class="meta" style="margin:4px 0 0">Results are % of master games won by White, drawn, or won by Black after each move. On the board, tap a piece: each move's badge is <span class="mlbl-demo wfav">white</span> when White did better after it, <span class="mlbl-demo bfav">amber</span> when Black did.</p>
+      <p class="meta" style="margin:4px 0 0"><b>Played</b>: how often masters chose the move here. <b>Bar</b>: of those games, % won by White, drawn, and won by Black. On the board, tap a piece: each move shows <b>W</b>hite's and <b>B</b>lack's win % (<span class="mlbl-demo wfav">white</span> badge when White did better, <span class="mlbl-demo bfav">amber</span> when Black did).</p>
       ${gl ? `<p class="meta" style="margin:8px 0 0">Strongest games that left our lines here:</p>${gl}` : ""}`;
   }
   box.hidden = false;
@@ -2728,7 +2735,12 @@ function renderBookBox() {
   if (!list.length || S.preview) { box.hidden = true; return; }
   const ply = S.records.length;
   const mst = masterStats(S.game.fen());
-  const mp = (san) => { if (!mst) return ""; const m = mst.moves.find((x) => x.san === san); return `<span class="mp" title="share of master games from this position">${m ? Math.max(1, Math.round(m.share * 100)) + "% of masters" : "rare for masters"}</span>`; };
+  const mp = (san) => {
+    if (!mst || !$("mastersOn").checked) return "";
+    const m = mst.all.get(san);
+    if (!m) return `<span class="mp never" title="no master played this">never played</span>`;
+    return `<span class="mp" title="Master games after this move: White won ${pct(m.w / m.n)}%, drawn ${pct(m.d / m.n)}%, Black won ${pct(m.b / m.n)}% · played in ${pctTxt(m.share)} of games (${m.n.toLocaleString()})">${winTxt(m) || pctTxt(m.share) + " played"}</span>`;
+  };
   if (S.mode === "practice") {
     box.innerHTML = `<h5>${list[0].sign ? "Signpost" : "Book move"}</h5><div class="bk"><span class="san">${esc(moveLabel(ply, list[0].san))}</span><span class="nm">${esc(list[0].label)}</span>${mp(list[0].san)}</div>`;
   } else {
@@ -2786,10 +2798,10 @@ function renderPanel() {
       if (!mst) return "";
       const m = mst.all.get(san);
       if (!m) return `<td class="s mcol never">never</td><td></td>`;
-      const r = m.w == null ? "" : `<span class="ww">${pct(m.w / m.n)}</span>/<span class="dd">${pct(m.d / m.n)}</span>/<span class="bb">${pct(m.b / m.n)}</span>`;
+      const r = winTxt(m, " ");
       return `<td class="s mcol">${pctTxt(m.n / mst.n)}</td><td class="s tres" title="${m.n} games · ${resultWords(m)}">${r}</td>`;
     };
-    $("moveTable").innerHTML = (mst ? `<tr class="hd"><td>Move</td><td class="s">Score</td><td class="s">Loss</td><td class="s" title="share of ${mst.n.toLocaleString()} master games from this position">Masters</td><td class="s" title="% won by White / drawn / won by Black">W/D/B</td></tr>` : "") +
+    $("moveTable").innerHTML = (mst ? `<tr class="hd"><td>Move</td><td class="s">Score</td><td class="s">Loss</td><td class="s" title="how often masters chose this move (${mst.n.toLocaleString()} games)">Played</td><td class="s" title="master games won by White / by Black after this move (the rest were drawn)">Wins</td></tr>` : "") +
       sc.list.map((m) => `<tr data-u="${m.uci}"><td><i class="dotc ${m.cls}"></i> ${esc(m.san)}</td><td class="s">${fmt(m.cp, m.mate)}</td><td class="s meta">${m.loss > 0 && m.loss < MATE_CP / 2 ? "−" + (m.loss / 100).toFixed(1) : ""}</td>${mcell(m.san)}</tr>`).join("");
     document.querySelectorAll("#moveTable tr[data-u]").forEach((tr) => {
       tr.onclick = () => { if (!S.preview && isUserTurn() && !S.engineThinking) makeMove(moveObj(tr.dataset.u), true); };
