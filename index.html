@@ -199,7 +199,13 @@
       </div>
 
       <div id="playBox">
-        <p class="hint">You play <strong>Black</strong>. The engine picks a White opening from the library, the page names it as it appears, and your book replies show as numbered blue arrows. ⚑ Priority openings come up more often. Liked that one? <strong>↻ Same opening</strong> under the board plays it again.</p>
+        <label>You play</label>
+        <div class="seg" id="playSideSeg">
+          <button data-v="w">White</button>
+          <button data-v="b" class="on">Black</button>
+          <button data-v="r">Random</button>
+        </div>
+        <p class="hint" id="playHint"></p>
       </div>
       <label class="check" id="bookToggleRow"><input type="checkbox" id="bookArrows" checked /> Show book moves as blue arrows</label>
 
@@ -2260,10 +2266,11 @@ function start() {
       <p class="meta" style="margin:4px 0 0">${Math.ceil(lineMoves().length / 2)} moves${lineMoves().length < fullArr(S.opening, S.lineIdx).length ? ` (of ${Math.ceil(fullArr(S.opening, S.lineIdx).length / 2)} in the full line)` : ""} · you play ${S.user === "w" ? "White" : "Black"}. The engine plays the book moves for the other side.</p>
       ${trap ? `<p class="note" style="margin:8px 0 0">${esc(trap)}</p>` : ""}<p class="meta" id="lineProgress" style="margin:6px 0 0"></p><div id="lineActions"></div><div id="branchNote"></div>`;
   } else {
-    S.user = S.mode === "play" ? "b" : "w";
+    S.user = S.mode === "play" ? playSide() : "w";
     $("lineBox").hidden = true;
   }
   S.flipped = S.mode === "explore" ? false : S.user === "b";
+  if (S.mode === "play") renderPlayHint();
   if (S.mode === "practice") { buildOpeningSelect(); buildLineSelect(); }
   renderOpeningCard();
   renderScore();
@@ -2894,10 +2901,24 @@ $("ocMore").addEventListener("toggle", () => lsSet("otr1:aboutOpen", $("ocMore")
 $("settings").addEventListener("toggle", () => lsSet("otr1:settingsOpen", $("settings").open ? "1" : "0"));
 $("bookArrows").onchange = () => { S.bookArrows = $("bookArrows").checked; lsSet("otr1:bookArrows", S.bookArrows ? "1" : "0"); renderBoard(); };
 function nextLine() { S.lineIdx = pickNextLine(); start(); }
+/* Play engine: you take White, Black, or a random side each new game ("Same opening" keeps the side) */
+function playSide() {
+  if (S.playReplay && S.playReplay.user) return S.playReplay.user;
+  const v = S.playSidePref || "b";
+  return v === "r" ? (Math.random() < 0.5 ? "w" : "b") : v;
+}
+function renderPlayHint() {
+  const you = S.user === "w" ? "White" : "Black", eng = S.user === "w" ? "Black" : "White";
+  $("playHint").innerHTML = `You play <strong>${you}</strong>. The engine answers as ${eng} with moves from the library, chosen the way masters play them, and the page names the opening as it appears. Your book moves show as numbered blue arrows. ⚑ Priority openings come up more often. Liked that one? <strong>↻ Same opening</strong> under the board plays it again.`;
+}
+document.querySelectorAll("#playSideSeg button").forEach((b) => b.onclick = () => {
+  S.playSidePref = b.dataset.v; setSeg("playSideSeg", b.dataset.v); lsSet("otr1:playSide", b.dataset.v);
+  S.playReplay = null; if (S.mode === "play") start();
+});
 $("restartBtn").onclick = () => { S.playReplay = null; start(); };
 $("sameBtn").onclick = () => {
   // instant replay: White repeats the same book moves; if you vary as Black, it stays inside the same opening
-  if (S.playScript.length) S.playReplay = { script: S.playScript.slice(), ids: new Set(S.playIds) };
+  if (S.playScript.length) S.playReplay = { script: S.playScript.slice(), ids: new Set(S.playIds), user: S.user };
   start();
 };
 $("flagBtn").onclick = () => { if (!S.opening) return; toggleFlag(S.opening); buildOpeningSelect(); renderOpeningCard(); };
@@ -2986,6 +3007,7 @@ document.addEventListener("keydown", (e) => {
   start();
   connectEngine();
   loadNames();
+  { const ps = lsGet("otr1:playSide"); if (["w", "b", "r"].includes(ps)) { S.playSidePref = ps; setSeg("playSideSeg", ps); } }
   if (lsGet("otr1:masters") === "0") $("mastersOn").checked = false;
   $("mastersOn").onchange = () => { lsSet("otr1:masters", $("mastersOn").checked ? "1" : "0"); renderPanel(); };
   loadMasters();
