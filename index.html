@@ -2057,7 +2057,7 @@ function masterBadge(mm) {
   if (!mm.n) { ml.className = "mlbl never"; ml.textContent = "never"; ml.title = "never played by masters"; return ml; }
   const m = mm.m, sc = m && m.w != null && m.n >= 10 ? (m.w + m.d / 2) / m.n : null;
   ml.className = "mlbl" + (sc == null ? "" : sc >= 0.53 ? " wfav" : sc <= 0.47 ? " bfav" : "");
-  ml.textContent = m && m.w != null ? `W${pct(m.w / m.n)} B${pct(m.b / m.n)}` : pctTxt(mm.share);
+  ml.textContent = m && m.w != null ? `W${pct(m.w / m.n)}% B${pct(m.b / m.n)}%` : pctTxt(mm.share);
   ml.title = `played in ${pctTxt(mm.share)} of master games (${mm.n.toLocaleString()})${m && m.w != null ? ` · White won ${pct(m.w / m.n)}%, drawn ${pct(m.d / m.n)}%, Black won ${pct(m.b / m.n)}%` : ""}`;
   return ml;
 }
