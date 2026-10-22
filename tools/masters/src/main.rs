@@ -46,6 +46,7 @@ struct Node {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 struct GameInfo { white: String, black: String, welo: u32, belo: u32, year: u32, result: u8, event: String, ply: usize }
 
 #[derive(Default)]
@@ -226,7 +227,7 @@ fn main() -> io::Result<()> {
             if parts.len() < cap && (s.n >= 2 || parts.len() < 3) {
                 parts.push(format!("[{},{},{},{},{},{}]", serde_json::to_string(&san).unwrap(), s.n, s.w, s.d, s.b, s.recent));
             } else {
-                rare.push(format!("[{},{}]", serde_json::to_string(&san).unwrap(), s.n));
+                rare.push(format!("[{},{},{},{},{}]", serde_json::to_string(&san).unwrap(), s.n, s.w, s.d, s.b));
             }
         }
         if parts.is_empty() { continue; }
