@@ -216,21 +216,25 @@ fn main() -> io::Result<()> {
         let mut mv: Vec<&(u16, MoveStat)> = node.moves.iter().collect();
         mv.sort_by(|x, y| y.1.n.cmp(&x.1.n));
         let cap = if is_target { 8 } else { 5 };
+        // top moves with full results; every other move masters played, with just its count,
+        // so a legal move that isn't listed at all was never played
         let mut parts = Vec::new();
-        for (code, s) in mv.into_iter().take(cap) {
-            if s.n < 2 && parts.len() >= 3 { break; }
-            let Ok(m) = dec(*code).to_move(&pos).or_else(|_| {
-                // castling arrives as king-two-squares in standard UCI
-                let u: UciMove = format!("{}", dec(*code)).parse().unwrap(); u.to_move(&pos)
-            }) else { continue };
+        let mut rare = Vec::new();
+        for (code, s) in mv.into_iter() {
+            let Ok(m) = dec(*code).to_move(&pos) else { continue };
             let san = SanP::from_move(pos.clone(), m).to_string();
-            parts.push(format!("[{},{},{},{},{},{}]", serde_json::to_string(&san).unwrap(), s.n, s.w, s.d, s.b, s.recent));
+            if parts.len() < cap && (s.n >= 2 || parts.len() < 3) {
+                parts.push(format!("[{},{},{},{},{},{}]", serde_json::to_string(&san).unwrap(), s.n, s.w, s.d, s.b, s.recent));
+            } else {
+                rare.push(format!("[{},{}]", serde_json::to_string(&san).unwrap(), s.n));
+            }
         }
         if parts.is_empty() { continue; }
         if !first { out.push(','); }
         first = false;
         kept += 1;
         out += &format!("{}:{{\"n\":{},\"m\":[{}]", serde_json::to_string(key).unwrap(), node.n, parts.join(","));
+        if !rare.is_empty() { out += &format!(",\"r\":[{}]", rare.join(",")); }
         if let Some(gl) = b.top.get(hk) {
             let gs: Vec<String> = gl.iter().map(|g| {
                 if g.year > 0 { years.0 = years.0.min(g.year); years.1 = years.1.max(g.year); }
